@@ -1,0 +1,22 @@
+{
+  "venue_id": "stadium_01",
+  "nodes": [
+    { "id": "gate_a", "type": "gate", "capacity": 1000 },
+    { "id": "corridor_1", "type": "corridor", "capacity": 800 },
+    { "id": "main_hall", "type": "hub", "capacity": 1000 },
+    { "id": "food_court", "type": "amenity", "capacity": 300 },
+    { "id": "exit_a", "type": "exit", "capacity": 500 },
+    { "id": "exit_b", "type": "exit", "capacity": 500 },
+    { "id": "exit_c", "type": "exit", "capacity": 500 }
+  ],
+  "edges": [
+    ["gate_a", "corridor_1"],
+    ["corridor_1", "main_hall"],
+    ["main_hall", "food_court"],
+    ["main_hall", "exit_a"],
+    ["exit_a", "exit_b"],
+    ["exit_b", "exit_c"]
+  ],
+  "gates": ["gate_a"],
+  "exits": ["exit_a", "exit_b", "exit_c"]
+}
