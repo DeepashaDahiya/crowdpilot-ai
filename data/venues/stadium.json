@@ -1,0 +1,16 @@
+{
+  "nodes": ["gate_a", "corridor_1", "main_hall", "food_court", "exit_a", "exit_b", "exit_c"],
+  "edges": [
+    ["gate_a", "corridor_1"],
+    ["corridor_1", "main_hall"],
+    ["main_hall", "food_court"],
+    ["main_hall", "exit_a"],
+    ["main_hall", "exit_b"],
+    ["food_court", "exit_c"]
+  ],
+  "capacities": {
+    "exit_a": 500,
+    "exit_b": 500,
+    "exit_c": 500
+  }
+}
