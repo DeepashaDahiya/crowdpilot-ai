@@ -22,14 +22,6 @@ def call_model(prompt: str) -> str:
     return response.choices[0].message.content
 
 
-if __name__ == "__main__":
-    # quick manual test
-    result = call_model("Say hello in exactly 5 words.")
-    print("MODEL RESPONSE:", result)
-
-    
-
-
 def get_structured_recommendation(analytics: dict, candidates: list[dict]) -> dict:
     """
     Calls the HF model with the recommendation prompt and returns a
@@ -52,7 +44,46 @@ def get_structured_recommendation(analytics: dict, candidates: list[dict]) -> di
         return None
 
 
+def validate_recommendation(parsed: dict, candidates: list[dict]) -> dict:
+    """
+    Ensures the model's chosen action is actually in the valid candidates list
+    and redirect_percentage is sane. Falls back to the best candidate if not.
+    """
+    if not candidates:
+        return None
+
+    best_candidate = candidates[0]  # already sorted best-first in recommender.py
+
+    if not parsed:
+        return _fallback(best_candidate)
+
+    valid_actions = {c["action"] for c in candidates}
+    action = parsed.get("action")
+    redirect = parsed.get("redirect_percentage")
+
+    if action not in valid_actions:
+        print(f"WARNING: model picked invalid action '{action}', falling back.")
+        return _fallback(best_candidate)
+
+    if not isinstance(redirect, (int, float)) or not (0 < redirect <= 100):
+        print(f"WARNING: invalid redirect_percentage '{redirect}', clamping to 30.")
+        parsed["redirect_percentage"] = 30
+
+    return parsed
+
+
+def _fallback(candidate: dict) -> dict:
+    return {
+        "action": candidate["action"],
+        "redirect_percentage": 30,
+        "reason": f"{candidate['to_node']} has significantly lower utilization ({candidate['alt_utilization']*100:.0f}%) and can absorb additional traffic.",
+        "expected_effect": f"Reduce congestion at {candidate['from_node']}.",
+    }
+
+
 if __name__ == "__main__":
+    from app.ai.recommender import get_candidate_actions
+
     mock_analytics = {
         "crowd_size": 500,
         "bottlenecks": [{"node": "exit_a", "utilization": 0.92}],
@@ -62,9 +93,7 @@ if __name__ == "__main__":
         ],
         "metrics": {"average_wait": 8.1, "congestion_score": 92},
     }
-    mock_candidates = [
-        {"action": "Open Exit C", "from_node": "exit_a", "to_node": "exit_c", "alt_utilization": 0.21},
-        {"action": "Open Exit B", "from_node": "exit_a", "to_node": "exit_b", "alt_utilization": 0.34},
-    ]
-    result = get_structured_recommendation(mock_analytics, mock_candidates)
-    print("PARSED RESULT:", result)
+    candidates = get_candidate_actions(mock_analytics)
+    parsed = get_structured_recommendation(mock_analytics, candidates)
+    validated = validate_recommendation(parsed, candidates)
+    print("VALIDATED RESULT:", validated)
