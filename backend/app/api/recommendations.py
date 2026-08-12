@@ -41,8 +41,18 @@ class ApplyPayload(BaseModel):
     redirect_percentage: int
 
 
+
+VALID_EXITS = {"exit_a", "exit_b", "exit_c"}  # from data/venues/stadium.json — confirm with Person 1 if this list ever changes
+
+
 @router.post("/apply-recommendation")
 def apply_recommendation(payload: ApplyPayload):
+    if payload.from_node not in VALID_EXITS or payload.to_node not in VALID_EXITS:
+        return {
+            "status": "error",
+            "message": f"Invalid node(s): from_node='{payload.from_node}', to_node='{payload.to_node}'. Must be one of {VALID_EXITS}.",
+        }
+
     reroute_body = {
         "from_node": payload.from_node,
         "to_node": payload.to_node,
@@ -50,9 +60,9 @@ def apply_recommendation(payload: ApplyPayload):
     }
 
     try:
-        # TODO: confirm this matches Person 1's real /simulation/reroute once it exists
         response = requests.post(f"{SIMULATION_BASE_URL}/simulation/reroute", json=reroute_body, timeout=5)
         response.raise_for_status()
-        return {"status": "ok", "reroute_result": response.json()}
+        result = response.json()
+        return {"status": "ok", "rerouted_count": result.get("rerouted_count"), "raw_result": result}
     except requests.exceptions.RequestException as e:
         return {"status": "error", "message": f"Could not reach simulation service: {e}"}
