@@ -32,7 +32,7 @@ def recommend(payload: AnalyticsPayload):
     return {"status": "ok", "recommendation": validated}
 
 
-SIMULATION_BASE_URL = "http://localhost:8000"  # update once you confirm Person 1's actual port
+SIMULATION_BASE_URL = "http://localhost:8001"  # TEMP: mock server for testing. SWAP to Person 1's real backend URL (likely :8000) once /simulation/reroute exists.
 
 
 class ApplyPayload(BaseModel):
