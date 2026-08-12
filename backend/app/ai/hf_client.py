@@ -11,6 +11,8 @@ HF_MODEL_ID = os.getenv("HF_MODEL_ID", "meta-llama/Llama-3.1-8B-Instruct")
 
 client = InferenceClient(token=HF_API_TOKEN)
 
+_last_good_response = {}  # simple in-memory cache, keyed by bottleneck signature
+
 
 def call_model(prompt: str) -> str:
     """Send a prompt to the HF-hosted model and return raw text response."""
@@ -22,25 +24,36 @@ def call_model(prompt: str) -> str:
     return response.choices[0].message.content
 
 
+def _cache_key(analytics: dict) -> str:
+    bottlenecks = analytics.get("bottlenecks", [])
+    if not bottlenecks:
+        return "none"
+    worst = max(bottlenecks, key=lambda b: b["utilization"])
+    return worst["node"]
+
+
 def get_structured_recommendation(analytics: dict, candidates: list[dict]) -> dict:
     """
     Calls the HF model with the recommendation prompt and returns a
-    parsed JSON dict. Strips markdown fences defensively if present.
+    parsed JSON dict. Falls back to cached last-good response on failure/timeout.
     """
     from app.ai.prompts import build_recommendation_prompt
 
+    key = _cache_key(analytics)
     prompt = build_recommendation_prompt(analytics, candidates)
-    raw = call_model(prompt)
-
-    # strip markdown code fences if the model added them anyway
-    cleaned = re.sub(r"^```(json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
 
     try:
+        raw = call_model(prompt)
+        cleaned = re.sub(r"^```(json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
         parsed = json.loads(cleaned)
+        _last_good_response[key] = parsed
         return parsed
-    except json.JSONDecodeError:
-        print("WARNING: could not parse model output as JSON. Raw output was:")
-        print(raw)
+    except Exception as e:
+        print(f"WARNING: HF call/parse failed ({e}). Trying cache.")
+        if key in _last_good_response:
+            print("Serving cached recommendation instead.")
+            return _last_good_response[key]
+        print("No cache available. Returning None.")
         return None
 
 
@@ -52,7 +65,7 @@ def validate_recommendation(parsed: dict, candidates: list[dict]) -> dict:
     if not candidates:
         return None
 
-    best_candidate = candidates[0]  # already sorted best-first in recommender.py
+    best_candidate = candidates[0]
 
     if not parsed:
         return _fallback(best_candidate)
