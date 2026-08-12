@@ -1,6 +1,11 @@
+import random
 from agents import spawn_agents
 
 class Engine:
+    
+    def __init__(self, n_agents=400):
+        self.policy = {"exit_a": 1.0}  # 100% of new agents go to exit_a for now
+        self.agents = spawn_agents(n_agents, policy=self.policy)
     def __init__(self, n_agents=400):
         self.agents = spawn_agents(n_agents)
 
@@ -22,6 +27,22 @@ class Engine:
         for agent in self.agents:
             occupancy[agent.current_node] = occupancy.get(agent.current_node, 0) + 1
         return occupancy           
+    def reroute(self, from_node, to_node, redirect_percentage):
+        from graph import load_venue, build_adjacency, shortest_path
+        venue = load_venue()
+        adj = build_adjacency(venue)
+
+        candidates = [a for a in self.agents if a.destination == from_node and a.state == "moving"]
+        n_to_redirect = int(len(candidates) * (redirect_percentage / 100))
+        chosen = random.sample(candidates, min(n_to_redirect, len(candidates)))
+
+        for agent in chosen:
+            new_route = shortest_path(adj, agent.current_node, to_node)
+            if new_route:
+                agent.destination = to_node
+                agent.route = new_route
+
+        return len(chosen)
 
 if __name__ == "__main__":
     

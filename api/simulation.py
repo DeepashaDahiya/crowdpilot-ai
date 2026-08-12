@@ -3,6 +3,14 @@ from fastapi import FastAPI
 from engine import Engine
 
 app = FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 sim = {"engine": None, "status": "idle"}
 
 async def tick_loop():
@@ -53,3 +61,16 @@ def get_state():
         })
         
     return {"crowd": {"total": total, "moving": moving}, "nodes": nodes}
+from pydantic import BaseModel
+
+class RerouteRequest(BaseModel):
+    from_node: str
+    to_node: str
+    redirect_percentage: float
+
+@app.post("/simulation/reroute")
+def reroute(req: RerouteRequest):
+    if sim["engine"] is None:
+        return {"error": "simulation not running"}
+    n_rerouted = sim["engine"].reroute(req.from_node, req.to_node, req.redirect_percentage)
+    return {"rerouted_count": n_rerouted}

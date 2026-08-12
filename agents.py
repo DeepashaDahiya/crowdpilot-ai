@@ -9,13 +9,21 @@ class Agent:
         self.route = route
         self.state = "moving"
 
-def spawn_agents(n, gate="gate_a"):
+def spawn_agents(n, gate="gate_a", policy=None):
     venue = load_venue()
     adj = build_adjacency(venue)
     exits = [node for node in venue["nodes"] if node.startswith("exit_")]
+
+    if policy:
+        exit_names = list(policy.keys())
+        weights = list(policy.values())
+    else:
+        exit_names = exits
+        weights = [1] * len(exits)
+
     agents = []
     for i in range(n):
-        destination = random.choice(exits)
+        destination = random.choices(exit_names, weights=weights, k=1)[0]
         route = shortest_path(adj, gate, destination)
         agents.append(Agent(agent_id=i, current_node=gate, destination=destination, route=route))
     return agents
