@@ -2,6 +2,7 @@ import requests
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Any
+import os
 
 
 
@@ -32,7 +33,7 @@ def recommend(payload: AnalyticsPayload):
     return {"status": "ok", "recommendation": validated}
 
 
-SIMULATION_BASE_URL = "http://localhost:8001"  # TEMP: mock server for testing. SWAP to Person 1's real backend URL (likely :8000) once /simulation/reroute exists.
+SIMULATION_BASE_URL = os.getenv("SIMULATION_BASE_URL", "http://localhost:8000")
 
 
 class ApplyPayload(BaseModel):
