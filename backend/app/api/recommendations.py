@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Any
 import os
 
-
+ANALYSIS_URL = os.getenv("ANALYSIS_URL", "http://localhost:8002/analysis")
 
 from app.ai.recommender import get_candidate_actions
 from app.ai.hf_client import get_structured_recommendation, validate_recommendation
@@ -20,8 +20,13 @@ class AnalyticsPayload(BaseModel):
 
 
 @router.post("/recommendation")
-def recommend(payload: AnalyticsPayload):
-    analytics = payload.dict()
+def recommend():
+    try:
+        response = requests.get(ANALYSIS_URL, timeout=5)
+        response.raise_for_status()
+        analytics = response.json()
+    except requests.exceptions.RequestException as e:
+        return {"status": "error", "message": f"Could not reach analytics service: {e}"}
 
     candidates = get_candidate_actions(analytics)
     if not candidates:
