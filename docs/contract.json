@@ -1,0 +1,17 @@
+{
+  "venue": "stadium_01",
+  "crowd": { "total": 500, "moving": 420 },
+  "nodes": [
+    { "id": "exit_a", "occupancy": 460, "capacity": 500, "utilization": 0.92 }
+  ],
+  "bottlenecks": [
+    { "node_id": "exit_a", "severity": 0.92, "status": "critical" }
+  ],
+  "metrics": { "congestion_score": 92, "average_wait": 8.1 },
+  "recommendation": {
+    "action": "Open Exit C",
+    "redirect_percentage": 30,
+    "reason": "Exit A is critically congested while Exit C has substantial available capacity.",
+    "expected_effect": "Reduce congestion around Exit A."
+  }
+}
