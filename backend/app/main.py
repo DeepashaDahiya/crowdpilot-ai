@@ -9,6 +9,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+from backend.app.api import simulation
+app.include_router(simulation.router)
 
 # TODO Person 1: from app.api import simulation; app.include_router(simulation.router)
 # TODO Person 2: from app.api import analysis; app.include_router(analysis.router)
