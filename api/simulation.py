@@ -17,7 +17,7 @@ async def tick_loop():
     while True:
         if sim["status"] == "running" and sim["engine"] is not None:
             sim["engine"].step()
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.3)
 
 @app.on_event("startup")
 async def startup_event():
@@ -68,9 +68,17 @@ class RerouteRequest(BaseModel):
     to_node: str
     redirect_percentage: float
 
+from fastapi import HTTPException
+
 @app.post("/simulation/reroute")
 def reroute(req: RerouteRequest):
     if sim["engine"] is None:
-        return {"error": "simulation not running"}
+        raise HTTPException(status_code=400, detail="simulation not running")
+
+    from graph import load_venue
+    valid_nodes = load_venue()["nodes"]
+    if req.from_node not in valid_nodes or req.to_node not in valid_nodes:
+        raise HTTPException(status_code=400, detail="invalid node name")
+
     n_rerouted = sim["engine"].reroute(req.from_node, req.to_node, req.redirect_percentage)
     return {"rerouted_count": n_rerouted}
