@@ -3,11 +3,11 @@ from agents import spawn_agents
 
 class Engine:
     
+
     def __init__(self, n_agents=400):
-        self.policy = {"exit_a": 1.0}  # 100% of new agents go to exit_a for now
+        self.policy = {"exit_a": 1.0}
         self.agents = spawn_agents(n_agents, policy=self.policy)
-    def __init__(self, n_agents=400):
-        self.agents = spawn_agents(n_agents)
+
 
     def step(self):
         for agent in self.agents:

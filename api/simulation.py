@@ -17,7 +17,7 @@ async def tick_loop():
     while True:
         if sim["status"] == "running" and sim["engine"] is not None:
             sim["engine"].step()
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(0.5)
 
 @app.on_event("startup")
 async def startup_event():
@@ -39,6 +39,14 @@ def reset():
     sim["engine"] = None
     sim["status"] = "idle"
     return {"status": "idle"}
+
+@app.get("/simulation/debug")
+def debug():
+    if sim["engine"] is None:
+        return {"error": "not running"}
+    from collections import Counter
+    counts = Counter((a.destination, a.state) for a in sim["engine"].agents)
+    return {f"{dest}-{state}": n for (dest, state), n in counts.items()}
 
 @app.get("/simulation/state")
 def get_state():
