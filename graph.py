@@ -1,10 +1,7 @@
 import json
 from collections import deque
 
-import os
-def load_venue(path=None):
-    if path is None:
-        path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "venues", "stadium.json")
+def load_venue(path="data/venues/stadium.json"):
     with open(path) as f:
         return json.load(f)
 
