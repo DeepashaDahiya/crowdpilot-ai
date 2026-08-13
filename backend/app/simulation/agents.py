@@ -1,5 +1,5 @@
 import random
-from backend.app.simulation.graph import load_venue, build_adjacency, shortest_path
+from app.simulation.graph import load_venue, build_adjacency, shortest_path
 
 class Agent:
     def __init__(self, agent_id, current_node, destination, route):

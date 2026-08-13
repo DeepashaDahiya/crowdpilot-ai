@@ -1,5 +1,5 @@
 import random
-from backend.app.simulation.agents import spawn_agents
+from app.simulation.agents import spawn_agents
 
 class Engine:
     
@@ -28,7 +28,7 @@ class Engine:
             occupancy[agent.current_node] = occupancy.get(agent.current_node, 0) + 1
         return occupancy           
     def reroute(self, from_node, to_node, redirect_percentage):
-        from backend.app.simulation.graph import load_venue, build_adjacency, shortest_path
+        from app.simulation.graph import load_venue, build_adjacency, shortest_path
         venue = load_venue()
         adj = build_adjacency(venue)
 

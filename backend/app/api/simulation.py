@@ -2,8 +2,8 @@ import asyncio
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from collections import Counter
-from backend.app.simulation.engine import Engine
-from backend.app.simulation.graph import load_venue
+from app.simulation.engine import Engine
+from app.simulation.graph import load_venue
 
 router = APIRouter()
 sim = {"engine": None, "status": "idle"}
@@ -12,7 +12,7 @@ async def tick_loop():
     while True:
         if sim["status"] == "running" and sim["engine"] is not None:
             sim["engine"].step()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(3)
 
 @router.post("/simulation/start")
 def start():
