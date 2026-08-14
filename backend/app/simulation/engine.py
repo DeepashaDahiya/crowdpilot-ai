@@ -5,7 +5,7 @@ class Engine:
     
 
     def __init__(self, n_agents=400):
-        self.policy = {"exit_a": 1.0}
+        self.policy = {"exit_a": 0.7, "exit_b": 0.15, "exit_c": 0.15}
         self.agents = spawn_agents(n_agents, policy=self.policy)
 
 

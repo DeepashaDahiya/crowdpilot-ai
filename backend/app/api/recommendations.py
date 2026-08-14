@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Any
 import os
 
-ANALYSIS_URL = os.getenv("ANALYSIS_URL", "http://localhost:8002/analysis")
+ANALYSIS_URL = os.getenv("ANALYSIS_URL", "http://localhost:8000/analysis")
 
 from app.ai.recommender import get_candidate_actions
 from app.ai.hf_client import get_structured_recommendation, validate_recommendation
@@ -17,16 +17,36 @@ class AnalyticsPayload(BaseModel):
     bottlenecks: list[dict[str, Any]]
     alternatives: list[dict[str, Any]]
     metrics: dict[str, Any]
-
+def adapt_analytics_contract(raw: dict) -> dict:
+    """
+    Translates Person 2's real /analysis response shape into the
+    shape recommender.py expects (node/utilization keys).
+    """
+    adapted_bottlenecks = [
+        {"node": b["node_id"], "utilization": b["severity"]}
+        for b in raw.get("bottlenecks", [])
+    ]
+    adapted_alternatives = [
+        {"node": a["node_id"], "utilization": a["utilization"]}
+        for a in raw.get("alternatives", [])
+    ]
+    return {
+        "crowd_size": raw.get("crowd", {}).get("total", 0),
+        "bottlenecks": adapted_bottlenecks,
+        "alternatives": adapted_alternatives,
+        "metrics": raw.get("metrics", {}),
+    }
 
 @router.post("/recommendation")
 def recommend():
     try:
         response = requests.get(ANALYSIS_URL, timeout=5)
         response.raise_for_status()
-        analytics = response.json()
+        raw_analytics = response.json()
     except requests.exceptions.RequestException as e:
         return {"status": "error", "message": f"Could not reach analytics service: {e}"}
+
+    analytics = adapt_analytics_contract(raw_analytics)
 
     candidates = get_candidate_actions(analytics)
     if not candidates:

@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import simulation
@@ -24,14 +25,16 @@ app.add_middleware(
 # =========================================================
 # API ROUTERS
 # =========================================================
-# Person 1 — Simulation
 app.include_router(simulation.router)
-
-# Person 2 — Analytics
 app.include_router(analysis.router)
-
-# Person 3 — Recommendations
 app.include_router(recommendations.router)
+
+# =========================================================
+# BACKGROUND TICK LOOP
+# =========================================================
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(simulation.tick_loop())
 
 # =========================================================
 # HEALTH CHECK
