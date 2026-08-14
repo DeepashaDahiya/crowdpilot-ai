@@ -1,4 +1,3 @@
-# TODO: implement routes
 from fastapi import APIRouter, HTTPException
 
 from app.analysis.congestion import (
@@ -19,143 +18,138 @@ router = APIRouter(
 )
 
 
+# =========================================================
+# METRICS HISTORY
+# =========================================================
+
 # Keeps utilization history while the server is running.
 metrics_tracker = MetricsTracker()
 
 
-# ---------------------------------------------------------
-# TEMPORARY MOCK SIMULATION
-# ---------------------------------------------------------
-# This is only for testing P2 until Person 1 implements
-# the real simulation.
-# ---------------------------------------------------------
-
-simulation_tick = 0
-
+# =========================================================
+# SIMULATION STATE ADAPTER
+# =========================================================
 
 def get_simulation_state() -> dict:
     """
-    Temporary dynamic simulation for testing P2.
+    Get the current simulation state from P1.
 
-    Every request represents one simulation tick.
+    P1 owns:
+        - agents
+        - movement
+        - routes
+        - simulation engine
 
-    Exit A:
-        60% → 70% → 82% → 90% → 94% → 60%
-    """
+    P2 owns:
+        - utilization
+        - congestion status
+        - bottlenecks
+        - alternatives
+        - metrics
+        - predictions
 
-    global simulation_tick
+    Expected P1 state:
 
-    simulation_tick += 1
-
-    occupancy_sequence = [
-        300,
-        350,
-        410,
-        450,
-        470,
-        300,
-    ]
-
-    index = (simulation_tick - 1) % len(occupancy_sequence)
-
-    exit_a_occupancy = occupancy_sequence[index]
-
-    # Other nodes change slightly with the simulation.
-    exit_b_occupancy = [
-        250,
-        250,
-        240,
-        220,
-        200,
-        250,
-    ][index]
-
-    exit_c_occupancy = [
-        100,
-        110,
-        120,
-        140,
-        160,
-        100,
-    ][index]
-
-    main_hall_occupancy = [
-        400,
-        430,
-        470,
-        520,
-        550,
-        400,
-    ][index]
-
-    food_court_occupancy = [
-        160,
-        180,
-        200,
-        220,
-        240,
-        160,
-    ][index]
-
-    gate_a_occupancy = [
-        120,
-        140,
-        160,
-        180,
-        190,
-        120,
-    ][index]
-
-    return {
+    {
         "venue": "stadium_01",
 
         "crowd": {
-            "total": 500,
-            "moving": 420,
+            "total": 400,
+            "moving": 350
         },
 
         "nodes": [
             {
-                "id": "gate_a",
-                "occupancy": gate_a_occupancy,
-                "capacity": 300,
-            },
-
-            {
-                "id": "main_hall",
-                "occupancy": main_hall_occupancy,
-                "capacity": 800,
-            },
-
-            {
-                "id": "food_court",
-                "occupancy": food_court_occupancy,
-                "capacity": 400,
-            },
-
-            {
                 "id": "exit_a",
-                "occupancy": exit_a_occupancy,
+                "occupancy": 410,
                 "capacity": 500,
-            },
-
-            {
-                "id": "exit_b",
-                "occupancy": exit_b_occupancy,
-                "capacity": 500,
-            },
-
-            {
-                "id": "exit_c",
-                "occupancy": exit_c_occupancy,
-                "capacity": 500,
-            },
-        ],
+                "utilization": 0.82
+            }
+        ]
     }
+    """
 
-# ---------------------------------------------------------
+    try:
+
+        # -------------------------------------------------
+        # Import P1 simulation module
+        # -------------------------------------------------
+
+        from app.api import simulation
+
+
+        # -------------------------------------------------
+        # Get state from P1
+        # -------------------------------------------------
+
+        state = simulation.get_state()
+
+
+        # -------------------------------------------------
+        # Protect against None
+        # -------------------------------------------------
+
+        if state is None:
+
+            return {
+                "venue": "stadium_01",
+
+                "crowd": {
+                    "total": 0,
+                    "moving": 0,
+                },
+
+                "nodes": [],
+            }
+
+
+        # -------------------------------------------------
+        # Ensure required keys exist
+        # -------------------------------------------------
+
+        state.setdefault(
+            "venue",
+            "stadium_01",
+        )
+
+        state.setdefault(
+            "crowd",
+            {
+                "total": 0,
+                "moving": 0,
+            },
+        )
+
+        state.setdefault(
+            "nodes",
+            [],
+        )
+
+
+        return state
+
+
+    # -----------------------------------------------------
+    # P1 simulation is not available yet
+    # -----------------------------------------------------
+
+    except (ImportError, AttributeError):
+
+        return {
+            "venue": "stadium_01",
+
+            "crowd": {
+                "total": 0,
+                "moving": 0,
+            },
+
+            "nodes": [],
+        }
+
+
+# =========================================================
 # ANALYSIS ENDPOINT
-# ---------------------------------------------------------
+# =========================================================
 
 @router.get("")
 def get_analysis():
@@ -164,40 +158,45 @@ def get_analysis():
 
     Flow:
 
-        Simulation state
+        P1 Simulation
               ↓
-        Analyze nodes
+        Simulation State
               ↓
-        Find bottleneck
+        Analyze Nodes
               ↓
-        Find alternatives
+        Find Bottleneck
               ↓
-        Calculate metrics
+        Find Alternatives
               ↓
-        Return analytics
+        Calculate Metrics
+              ↓
+        Return P2 Analytics
     """
 
     try:
 
-        # -------------------------------------------------
-        # 1. Get current simulation state
-        # -------------------------------------------------
+        # =================================================
+        # 1. GET CURRENT SIMULATION STATE
+        # =================================================
 
         state = get_simulation_state()
 
-        nodes = state.get("nodes", [])
+        nodes = state.get(
+            "nodes",
+            [],
+        )
 
 
-        # -------------------------------------------------
-        # 2. Handle empty simulation
-        # -------------------------------------------------
+        # =================================================
+        # 2. HANDLE EMPTY SIMULATION
+        # =================================================
 
         if not nodes:
 
             return {
                 "venue": state.get(
                     "venue",
-                    "unknown",
+                    "stadium_01",
                 ),
 
                 "crowd": state.get(
@@ -222,35 +221,45 @@ def get_analysis():
             }
 
 
-        # -------------------------------------------------
-        # 3. Analyze every node
-        # -------------------------------------------------
+        # =================================================
+        # 3. ANALYZE EVERY NODE
+        # =================================================
 
-        analyzed_nodes = analyze_nodes(nodes)
+        analyzed_nodes = analyze_nodes(
+            nodes
+        )
 
 
-        # -------------------------------------------------
-        # 4. Find the most congested node
-        # -------------------------------------------------
+        # =================================================
+        # 4. FIND BOTTLENECK
+        # =================================================
 
         bottleneck = find_bottleneck(
             analyzed_nodes
         )
 
+
         bottlenecks = []
 
         if bottleneck:
-            bottlenecks.append(bottleneck)
+
+            bottlenecks.append(
+                bottleneck
+            )
 
 
-        # -------------------------------------------------
-        # 5. Find alternative nodes
-        # -------------------------------------------------
+        # =================================================
+        # 5. FIND ALTERNATIVE NODES
+        # =================================================
 
         bottleneck_id = None
 
         if bottleneck:
-            bottleneck_id = bottleneck["node_id"]
+
+            bottleneck_id = bottleneck.get(
+                "node_id"
+            )
+
 
         alternatives = find_alternatives(
             analyzed_nodes,
@@ -258,9 +267,9 @@ def get_analysis():
         )
 
 
-        # -------------------------------------------------
-        # 6. Calculate metrics and predictions
-        # -------------------------------------------------
+        # =================================================
+        # 6. BUILD METRICS + PREDICTIONS
+        # =================================================
 
         metrics = build_metrics(
             analyzed_nodes,
@@ -268,15 +277,15 @@ def get_analysis():
         )
 
 
-        # -------------------------------------------------
-        # 7. Return P2 analytics
-        # -------------------------------------------------
+        # =================================================
+        # 7. RETURN P2 ANALYTICS CONTRACT
+        # =================================================
 
         return {
 
             "venue": state.get(
                 "venue",
-                "unknown",
+                "stadium_01",
             ),
 
             "crowd": state.get(
@@ -297,9 +306,16 @@ def get_analysis():
         }
 
 
+    # =====================================================
+    # ERROR HANDLING
+    # =====================================================
+
     except Exception as exc:
 
         raise HTTPException(
             status_code=500,
-            detail=f"Analytics calculation failed: {str(exc)}",
+            detail=(
+                "Analytics calculation failed: "
+                f"{str(exc)}"
+            ),
         )

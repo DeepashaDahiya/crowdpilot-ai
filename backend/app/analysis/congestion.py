@@ -1,17 +1,41 @@
+"""
+CrowdPilot AI - Congestion Analysis
+
+P2 responsibilities:
+- Calculate node utilization
+- Classify congestion severity
+- Identify the most congested node
+- Find alternative nodes with available capacity
+"""
+
 from typing import Any
 
 
-# Congestion thresholds
+# =========================================================
+# CONGESTION THRESHOLDS
+# =========================================================
+
 LOW_THRESHOLD = 0.60
 MODERATE_THRESHOLD = 0.80
 HIGH_THRESHOLD = 0.90
 
 
-def calculate_utilization(occupancy: int, capacity: int) -> float:
-    """
-    Calculate how much of a node's capacity is currently being used.
+# =========================================================
+# UTILIZATION
+# =========================================================
 
-    utilization = occupancy / capacity
+def calculate_utilization(
+    occupancy: float,
+    capacity: float,
+) -> float:
+    """
+    Calculate utilization from occupancy and capacity.
+
+    Example:
+        occupancy = 410
+        capacity = 500
+
+        utilization = 410 / 500 = 0.82
     """
 
     if capacity <= 0:
@@ -19,13 +43,24 @@ def calculate_utilization(occupancy: int, capacity: int) -> float:
 
     utilization = occupancy / capacity
 
-    # Keep the value between 0 and 1
-    return min(max(utilization, 0.0), 1.0)
+    # Keep the value within 0-1.
+    utilization = max(
+        0.0,
+        min(utilization, 1.0),
+    )
+
+    return round(utilization, 2)
 
 
-def classify_congestion(utilization: float) -> str:
+# =========================================================
+# CONGESTION STATUS
+# =========================================================
+
+def get_congestion_status(
+    utilization: float,
+) -> str:
     """
-    Classify congestion based on utilization.
+    Classify utilization.
 
     < 0.60  -> low
     < 0.80  -> moderate
@@ -45,62 +80,164 @@ def classify_congestion(utilization: float) -> str:
     return "critical"
 
 
-def analyze_node(node: dict[str, Any]) -> dict[str, Any]:
-    """
-    Analyze one venue node.
+# =========================================================
+# ANALYZE NODES
+# =========================================================
 
-    Expected input:
+def analyze_nodes(
+    nodes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Analyze every venue node.
+
+    Input from P1:
+
     {
         "id": "exit_a",
-        "occupancy": 460,
+        "occupancy": 410,
         "capacity": 500
     }
 
-    Returns:
+    Output:
+
     {
         "id": "exit_a",
-        "occupancy": 460,
+        "occupancy": 410,
         "capacity": 500,
-        "utilization": 0.92,
-        "status": "critical"
+        "utilization": 0.82,
+        "status": "high"
     }
     """
 
-    node_id = node.get("id", "unknown")
-    occupancy = int(node.get("occupancy", 0))
-    capacity = int(node.get("capacity", 0))
+    analyzed_nodes = []
 
-    utilization = calculate_utilization(
-        occupancy,
-        capacity
-    )
+    for node in nodes:
 
-    status = classify_congestion(utilization)
+        node_id = node.get(
+            "id",
+            "unknown",
+        )
 
-    return {
-        "id": node_id,
-        "occupancy": occupancy,
-        "capacity": capacity,
-        "utilization": round(utilization, 4),
-        "status": status
-    }
+        occupancy = node.get(
+            "occupancy",
+            0,
+        )
+
+        capacity = node.get(
+            "capacity",
+            0,
+        )
+
+        # -------------------------------------------------
+        # Convert values safely
+        # -------------------------------------------------
+
+        try:
+            occupancy = float(occupancy)
+        except (TypeError, ValueError):
+            occupancy = 0.0
+
+        try:
+            capacity = float(capacity)
+        except (TypeError, ValueError):
+            capacity = 0.0
+
+        # -------------------------------------------------
+        # Use P1 utilization if supplied.
+        # Otherwise calculate it ourselves.
+        # -------------------------------------------------
+
+        supplied_utilization = node.get(
+            "utilization"
+        )
+
+        if supplied_utilization is not None:
+
+            try:
+                utilization = float(
+                    supplied_utilization
+                )
+
+                utilization = max(
+                    0.0,
+                    min(utilization, 1.0),
+                )
+
+                utilization = round(
+                    utilization,
+                    2,
+                )
+
+            except (TypeError, ValueError):
+
+                utilization = calculate_utilization(
+                    occupancy,
+                    capacity,
+                )
+
+        else:
+
+            utilization = calculate_utilization(
+                occupancy,
+                capacity,
+            )
+
+        # -------------------------------------------------
+        # Determine congestion status
+        # -------------------------------------------------
+
+        status = get_congestion_status(
+            utilization
+        )
+
+        # -------------------------------------------------
+        # Preserve the node information
+        # -------------------------------------------------
+
+        analyzed_node = dict(node)
+
+        analyzed_node["occupancy"] = (
+            int(occupancy)
+            if occupancy.is_integer()
+            else occupancy
+        )
+
+        analyzed_node["capacity"] = (
+            int(capacity)
+            if capacity.is_integer()
+            else capacity
+        )
+
+        analyzed_node["utilization"] = utilization
+
+        analyzed_node["status"] = status
+
+        analyzed_nodes.append(
+            analyzed_node
+        )
+
+    return analyzed_nodes
 
 
-def analyze_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """
-    Analyze all venue nodes.
-    """
-
-    return [analyze_node(node) for node in nodes]
-
+# =========================================================
+# FIND BOTTLENECK
+# =========================================================
 
 def find_bottleneck(
-    analyzed_nodes: list[dict[str, Any]]
+    analyzed_nodes: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     """
-    Find the most congested node.
+    Find the single most-congested node.
 
-    Returns None if there are no nodes.
+    Returns:
+
+    {
+        "node_id": "exit_a",
+        "severity": 0.92,
+        "status": "critical"
+    }
+
+    Returns None when there are no nodes.
     """
 
     if not analyzed_nodes:
@@ -108,76 +245,133 @@ def find_bottleneck(
 
     bottleneck = max(
         analyzed_nodes,
-        key=lambda node: node["utilization"]
+        key=lambda node: node.get(
+            "utilization",
+            0,
+        ),
+    )
+
+    utilization = float(
+        bottleneck.get(
+            "utilization",
+            0,
+        )
     )
 
     return {
-        "node_id": bottleneck["id"],
-        "severity": bottleneck["utilization"],
-        "status": bottleneck["status"]
+        "node_id": bottleneck.get(
+            "id",
+            "unknown",
+        ),
+        "severity": round(
+            utilization,
+            2,
+        ),
+        "status": bottleneck.get(
+            "status",
+            get_congestion_status(
+                utilization
+            ),
+        ),
     }
 
 
-def calculate_congestion_score(
-    analyzed_nodes: list[dict[str, Any]]
-) -> int:
-    """
-    Calculate an overall congestion score from 0-100.
-
-    The score is based on the highest node utilization.
-    """
-
-    if not analyzed_nodes:
-        return 0
-
-    highest_utilization = max(
-        node["utilization"]
-        for node in analyzed_nodes
-    )
-
-    return round(highest_utilization * 100)
+# =========================================================
+# FIND ALTERNATIVES
+# =========================================================
 
 def find_alternatives(
     analyzed_nodes: list[dict[str, Any]],
-    bottleneck_id: str | None,
+    bottleneck_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Find less-congested nodes that can potentially be used
-    as alternatives to the current bottleneck.
+    Find less-congested nodes that can act as alternatives.
 
-    A node is considered an alternative when:
-    - It is not the bottleneck.
-    - Its utilization is below 80%.
+    The bottleneck itself is excluded.
+
+    Alternatives are sorted by utilization:
+        lowest utilization first.
+
+    Example:
+
+        exit_a = 0.82  <- bottleneck
+        exit_b = 0.50
+        exit_c = 0.20
+
+    Result:
+
+        exit_c
+        exit_b
     """
 
     alternatives = []
 
     for node in analyzed_nodes:
 
-        if node["id"] == bottleneck_id:
+        node_id = node.get(
+            "id",
+            "unknown",
+        )
+
+        # -------------------------------------------------
+        # Never recommend the current bottleneck
+        # -------------------------------------------------
+
+        if node_id == bottleneck_id:
             continue
 
-        utilization = float(node["utilization"])
-
-        if utilization < MODERATE_THRESHOLD:
-
-            available_capacity = max(
-                node["capacity"] - node["occupancy"],
+        utilization = float(
+            node.get(
+                "utilization",
                 0,
             )
+        )
 
-            alternatives.append(
-                {
-                    "node_id": node["id"],
-                    "utilization": utilization,
-                    "available_capacity": available_capacity,
-                }
+        capacity = float(
+            node.get(
+                "capacity",
+                0,
             )
+        )
 
-    # Most available capacity first
+        occupancy = float(
+            node.get(
+                "occupancy",
+                0,
+            )
+        )
+
+        available_capacity = max(
+            0,
+            capacity - occupancy,
+        )
+
+        # -------------------------------------------------
+        # Only consider nodes with available capacity
+        # -------------------------------------------------
+
+        if available_capacity <= 0:
+            continue
+
+        alternatives.append(
+            {
+                "node_id": node_id,
+                "utilization": round(
+                    utilization,
+                    2,
+                ),
+                "available_capacity": int(
+                    available_capacity
+                ),
+            }
+        )
+
+    # -----------------------------------------------------
+    # Prefer the least congested alternatives
+    # -----------------------------------------------------
+
     alternatives.sort(
-        key=lambda node: node["available_capacity"],
-        reverse=True,
+        key=lambda node: node["utilization"]
     )
 
     return alternatives

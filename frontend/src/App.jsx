@@ -1,37 +1,53 @@
 // CrowdPilot AI — dashboard
 // Person 2: VenueMap + KPI Cards + analytics
-// Person 3: RecommendationPanel can be added later
+// Person 3: RecommendationPanel can be connected to live API later
 
 import { useEffect, useState } from "react";
 import VenueMap from "./components/VenueMap";
 import BeforeAfter from "./components/BeforeAfter";
+import RecommendationPanel from "./components/RecommendationPanel";
 import "./App.css";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "http://127.0.0.1:8000";
 
-
 export default function App() {
-
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [backendOnline, setBackendOnline] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  const [recommendation, setRecommendation] =
+    useState(null);
+
+  const [applyingRecommendation, setApplyingRecommendation] =
+    useState(false);
+
+  // ==========================================
+  // TEMPORARY RECOMMENDATION MOCK
+  // ==========================================
+  // This will later be replaced by P3's
+  // /recommendation endpoint.
+
+  const mockRecommendation = {
+    action: "Open Exit C",
+    redirect_percentage: 30,
+    reason:
+      "Exit A is critically congested while Exit C has substantial available capacity.",
+    expected_effect:
+      "Reduce congestion around Exit A.",
+  };
 
   // ==========================================
   // FETCH ANALYTICS
   // ==========================================
 
   async function fetchAnalysis() {
-
     try {
-
       const response = await fetch(
         `${API_URL}/analysis`
       );
-
 
       if (!response.ok) {
         throw new Error(
@@ -39,9 +55,7 @@ export default function App() {
         );
       }
 
-
       const data = await response.json();
-
 
       // Update analytics
       setAnalysis(data);
@@ -55,8 +69,11 @@ export default function App() {
       // Store latest successful update time
       setLastUpdated(new Date());
 
-    } catch (err) {
+      // Temporary recommendation
+      // Later replace with P3 API response.
+      setRecommendation(mockRecommendation);
 
+    } catch (err) {
       console.error(err);
 
       setBackendOnline(false);
@@ -67,16 +84,54 @@ export default function App() {
     }
   }
 
+  // ==========================================
+  // APPLY RECOMMENDATION
+  // ==========================================
+
+  async function handleApplyRecommendation() {
+    try {
+      setApplyingRecommendation(true);
+
+      console.log(
+        "Applying recommendation:",
+        recommendation
+      );
+
+      /*
+       * TEMPORARY MOCK
+       *
+       * Later this will call P3:
+       *
+       * POST /recommendation/apply
+       *
+       */
+
+      await new Promise(
+        (resolve) =>
+          setTimeout(resolve, 1000)
+      );
+
+      console.log(
+        "Recommendation applied successfully."
+      );
+
+    } catch (err) {
+      console.error(
+        "Failed to apply recommendation:",
+        err
+      );
+    } finally {
+      setApplyingRecommendation(false);
+    }
+  }
 
   // ==========================================
   // REAL-TIME POLLING
   // ==========================================
 
   useEffect(() => {
-
     // Fetch immediately
     fetchAnalysis();
-
 
     // Fetch every second
     const interval = setInterval(
@@ -84,77 +139,127 @@ export default function App() {
       1000
     );
 
-
     // Cleanup
     return () => {
       clearInterval(interval);
     };
-
   }, []);
-
 
   // ==========================================
   // LOADING
   // ==========================================
 
   if (!analysis && !error) {
-
     return (
       <div className="app">
 
-        <h1>
-          CrowdPilot AI
-        </h1>
+        <header className="header">
+          <div>
+            <h1>CrowdPilot AI</h1>
 
-        <p>
-          Loading crowd analytics...
-        </p>
+            <p>
+              Real-Time Crowd Intelligence
+            </p>
+          </div>
+
+          <div className="live-indicator">
+            <span className="live-dot offline" />
+            CONNECTING...
+          </div>
+        </header>
+
+        <div className="loading-state">
+          <h2>
+            Loading crowd analytics...
+          </h2>
+
+          <p>
+            Connecting to the CrowdPilot backend.
+          </p>
+        </div>
 
       </div>
     );
   }
-
 
   // ==========================================
   // ERROR
   // ==========================================
 
   if (!analysis && error) {
-
     return (
       <div className="app">
 
-        <h1>
-          CrowdPilot AI
-        </h1>
+        <header className="header">
+          <div>
+            <h1>CrowdPilot AI</h1>
 
-        <p className="error">
-          {error}
-        </p>
+            <p>
+              Real-Time Crowd Intelligence
+            </p>
+          </div>
+
+          <div className="live-indicator">
+            <span className="live-dot offline" />
+            OFFLINE
+          </div>
+        </header>
+
+        <div className="error-state">
+
+          <h2>
+            CrowdPilot backend unavailable
+          </h2>
+
+          <p className="error">
+            {error}
+          </p>
+
+          <button
+            className="retry-button"
+            onClick={fetchAnalysis}
+          >
+            Retry Connection
+          </button>
+
+        </div>
 
       </div>
     );
   }
 
+  // ==========================================
+  // SAFE DATA VALUES
+  // ==========================================
 
-  // ==========================================
-  // HIGHEST RISK NODE
-  // ==========================================
+  const crowd = analysis?.crowd ?? {
+    total: 0,
+    moving: 0,
+  };
+
+  const metrics = analysis?.metrics ?? {
+    congestion_score: 0,
+    average_wait: 0,
+    predictions: [],
+  };
+
+  const bottlenecks =
+    analysis?.bottlenecks ?? [];
 
   const highestRisk =
-    analysis?.bottlenecks?.length > 0
-      ? analysis.bottlenecks[0]
+    bottlenecks.length > 0
+      ? bottlenecks[0]
       : null;
 
+  const predictions =
+    metrics.predictions ?? [];
 
   // ==========================================
   // MAIN DASHBOARD
   // ==========================================
 
   return (
-
     <div className="app">
-
 
       {/* =====================================
           HEADER
@@ -174,7 +279,6 @@ export default function App() {
 
         </div>
 
-
         {/* Backend status */}
 
         <div className="live-indicator">
@@ -191,9 +295,7 @@ export default function App() {
             ? "LIVE"
             : "OFFLINE"}
 
-
           {lastUpdated && (
-
             <span className="last-updated">
 
               Updated{" "}
@@ -201,7 +303,6 @@ export default function App() {
               {lastUpdated.toLocaleTimeString()}
 
             </span>
-
           )}
 
         </div>
@@ -216,7 +317,7 @@ export default function App() {
       <section className="venue-section">
 
         <h2>
-          {analysis.venue}
+          {analysis?.venue || "stadium_01"}
         </h2>
 
         <p>
@@ -233,7 +334,6 @@ export default function App() {
 
       <section className="kpi-grid">
 
-
         {/* Crowd Size */}
 
         <div className="kpi-card">
@@ -243,12 +343,15 @@ export default function App() {
           </div>
 
           <div className="kpi-value">
-            {analysis.crowd.total}
+            {crowd.total}
           </div>
 
           <div className="kpi-subtext">
-            {analysis.crowd.moving}
+
+            {crowd.moving}
+
             {" "}currently moving
+
           </div>
 
         </div>
@@ -263,7 +366,7 @@ export default function App() {
           </div>
 
           <div className="kpi-value">
-            {analysis.metrics.congestion_score}
+            {metrics.congestion_score}
           </div>
 
           <div className="kpi-subtext">
@@ -283,7 +386,7 @@ export default function App() {
 
           <div className="kpi-value">
 
-            {analysis.metrics.average_wait}
+            {metrics.average_wait}
 
             <span className="unit">
               {" "}sec
@@ -300,12 +403,18 @@ export default function App() {
 
         {/* Highest Risk */}
 
-        <div className="kpi-card">
+        <div
+          className={
+            highestRisk &&
+            highestRisk.status === "critical"
+              ? "kpi-card critical-card"
+              : "kpi-card"
+          }
+        >
 
           <div className="kpi-label">
             HIGHEST RISK
           </div>
-
 
           {highestRisk ? (
 
@@ -316,7 +425,6 @@ export default function App() {
                 {highestRisk.node_id}
 
               </div>
-
 
               <div className="kpi-subtext">
 
@@ -366,7 +474,8 @@ export default function App() {
 
 
         {/* ===================================
-            RIGHT — ALERTS + PREDICTIONS
+            RIGHT — ALERTS + PREDICTIONS +
+            RECOMMENDATION
         ==================================== */}
 
         <aside className="side-column">
@@ -395,13 +504,11 @@ export default function App() {
                   !
                 </div>
 
-
                 <div>
 
                   <strong>
                     {highestRisk.node_id}
                   </strong>
-
 
                   <p>
 
@@ -422,7 +529,7 @@ export default function App() {
 
             ) : (
 
-              <p>
+              <p className="muted">
                 No active congestion alerts.
               </p>
 
@@ -446,9 +553,9 @@ export default function App() {
             </div>
 
 
-            {analysis.metrics.predictions?.length > 0 ? (
+            {predictions.length > 0 ? (
 
-              analysis.metrics.predictions.map(
+              predictions.map(
                 (prediction, index) => (
 
                   <div
@@ -475,6 +582,21 @@ export default function App() {
             )}
 
           </section>
+
+
+          {/* =================================
+              AI RECOMMENDATION
+          ================================== */}
+
+          <RecommendationPanel
+            recommendation={recommendation}
+            onApply={
+              handleApplyRecommendation
+            }
+            applying={
+              applyingRecommendation
+            }
+          />
 
         </aside>
 

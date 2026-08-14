@@ -1,211 +1,345 @@
+"""
+CrowdPilot AI - Metrics and Prediction
+
+P2 responsibilities:
+- Congestion score
+- Average wait estimate
+- Recent utilization history
+- Congestion trend
+- Short-term congestion prediction
+"""
+
 from collections import defaultdict, deque
-from typing import Any
 
 
-# Number of recent utilization readings to remember
-HISTORY_SIZE = 10
+# =========================================================
+# CONFIGURATION
+# =========================================================
 
-# Prediction threshold from the project specification
-PREDICTION_UTILIZATION_THRESHOLD = 0.80
+HISTORY_SIZE = 5
 
+PREDICTION_THRESHOLD = 0.80
+
+TREND_EPSILON = 0.01
+
+
+# =========================================================
+# METRICS TRACKER
+# =========================================================
 
 class MetricsTracker:
     """
-    Tracks recent utilization values for each venue node.
+    Stores recent utilization values for each node.
 
-    Example history:
+    Example:
 
-    exit_a:
-        0.70
-        0.75
-        0.81
-        0.87
-        0.92
+        exit_a:
+            [0.60, 0.70, 0.82, 0.90]
+
+    This allows P2 to determine whether congestion
+    is increasing.
     """
 
-    def __init__(self, history_size: int = HISTORY_SIZE):
+    def __init__(
+        self,
+        history_size: int = HISTORY_SIZE,
+    ):
         self.history_size = history_size
 
-        self.history: dict[str, deque[float]] = defaultdict(
-            lambda: deque(maxlen=self.history_size)
+        self.history = defaultdict(
+            lambda: deque(
+                maxlen=self.history_size
+            )
         )
 
-    def update(self, analyzed_nodes: list[dict[str, Any]]) -> None:
+    def update(
+        self,
+        nodes: list[dict],
+    ):
         """
-        Add the latest utilization value for every node.
-        """
-
-        for node in analyzed_nodes:
-            node_id = node["id"]
-            utilization = float(node["utilization"])
-
-            self.history[node_id].append(utilization)
-
-    def get_history(self, node_id: str) -> list[float]:
-        """
-        Return recent utilization values for a node.
+        Add the current utilization of every node
+        to its history.
         """
 
-        return list(self.history.get(node_id, []))
+        for node in nodes:
 
-    def calculate_trend(self, node_id: str) -> float:
+            node_id = node.get(
+                "id",
+                "unknown",
+            )
+
+            utilization = float(
+                node.get(
+                    "utilization",
+                    0,
+                )
+            )
+
+            self.history[node_id].append(
+                utilization
+            )
+
+    def get_history(
+        self,
+        node_id: str,
+    ) -> list[float]:
+
+        return list(
+            self.history.get(
+                node_id,
+                [],
+            )
+        )
+
+    def get_trend(
+        self,
+        node_id: str,
+    ) -> float:
         """
-        Calculate the change in utilization.
+        Calculate the change between the newest
+        and oldest available utilization value.
 
-        Positive value  -> utilization increasing
-        Negative value  -> utilization decreasing
-        Zero             -> no change
-
-        Example:
-
-        Previous = 0.80
-        Current  = 0.90
-
-        Trend = 0.10
+        Positive = increasing
+        Negative = decreasing
+        Zero = stable
         """
 
-        values = self.get_history(node_id)
+        history = self.get_history(
+            node_id
+        )
 
-        if len(values) < 2:
+        if len(history) < 2:
             return 0.0
 
-        previous = values[-2]
-        current = values[-1]
+        return round(
+            history[-1] - history[0],
+            3,
+        )
 
-        return round(current - previous, 4)
-
-    def is_trending_up(self, node_id: str) -> bool:
-        """
-        Check whether utilization is increasing.
-        """
-
-        return self.calculate_trend(node_id) > 0
-
-    def generate_prediction(
+    def is_increasing(
         self,
-        node: dict[str, Any]
-    ) -> str | None:
-        """
-        Generate a congestion prediction.
+        node_id: str,
+    ) -> bool:
 
-        Prediction is generated when:
-        1. utilization > 0.80
-        2. utilization is increasing
-        """
-
-        node_id = node["id"]
-        utilization = float(node["utilization"])
-
-        if utilization > PREDICTION_UTILIZATION_THRESHOLD:
-            if self.is_trending_up(node_id):
-                return (
-                    f"High congestion predicted at "
-                    f"{node_id} within ~60 seconds."
-                )
-
-        return None
-
-    def get_node_metrics(
-        self,
-        node: dict[str, Any]
-    ) -> dict[str, Any]:
-        """
-        Return trend and prediction information for one node.
-        """
-
-        node_id = node["id"]
-
-        trend = self.calculate_trend(node_id)
-        prediction = self.generate_prediction(node)
-
-        return {
-            "node_id": node_id,
-            "utilization": node["utilization"],
-            "trend": trend,
-            "prediction": prediction
-        }
-
-    def clear(self) -> None:
-        """
-        Clear all stored utilization history.
-        """
-
-        self.history.clear()
+        return (
+            self.get_trend(node_id)
+            > TREND_EPSILON
+        )
 
 
-def calculate_average_utilization(
-    analyzed_nodes: list[dict[str, Any]]
-) -> float:
+# =========================================================
+# CONGESTION SCORE
+# =========================================================
+
+def calculate_congestion_score(
+    nodes: list[dict],
+) -> int:
     """
-    Calculate average utilization across all nodes.
+    Calculate overall venue congestion score.
+
+    Uses the highest node utilization.
+
+    Example:
+
+        exit_a = 0.82
+        exit_b = 0.50
+        exit_c = 0.20
+
+        score = 82
     """
 
-    if not analyzed_nodes:
-        return 0.0
+    if not nodes:
+        return 0
 
-    total = sum(
-        float(node["utilization"])
-        for node in analyzed_nodes
+    maximum_utilization = max(
+        float(
+            node.get(
+                "utilization",
+                0,
+            )
+        )
+        for node in nodes
     )
 
-    return round(total / len(analyzed_nodes), 4)
+    return round(
+        maximum_utilization * 100
+    )
 
+
+# =========================================================
+# AVERAGE WAIT
+# =========================================================
 
 def calculate_average_wait(
-    analyzed_nodes: list[dict[str, Any]]
+    nodes: list[dict],
 ) -> float:
     """
-    Calculate average wait if wait information exists.
+    Estimate average wait from congestion.
 
-    The current contract.json does not provide wait time per node,
-    so this returns 0 until the simulation supplies that information.
+    This is a simple heuristic for the prototype.
+
+    It intentionally avoids pretending to be a
+    real queueing model.
+
+    Higher utilization -> higher estimated wait.
     """
 
-    wait_values = []
+    if not nodes:
+        return 0.0
 
-    for node in analyzed_nodes:
-        if "wait_time" in node:
-            wait_values.append(float(node["wait_time"]))
+    total_wait = 0.0
+    counted_nodes = 0
 
-    if not wait_values:
+    for node in nodes:
+
+        utilization = float(
+            node.get(
+                "utilization",
+                0,
+            )
+        )
+
+        # Only congestion above 60% contributes
+        # to the estimated waiting time.
+        excess = max(
+            0.0,
+            utilization - 0.60,
+        )
+
+        wait = excess * 20
+
+        total_wait += wait
+        counted_nodes += 1
+
+    if counted_nodes == 0:
         return 0.0
 
     return round(
-        sum(wait_values) / len(wait_values),
-        2
+        total_wait / counted_nodes,
+        1,
     )
 
 
-def build_metrics(
-    analyzed_nodes: list[dict[str, Any]],
-    tracker: MetricsTracker
-) -> dict[str, Any]:
+# =========================================================
+# PREDICTIONS
+# =========================================================
+
+def generate_predictions(
+    nodes: list[dict],
+    tracker: MetricsTracker,
+) -> list[str]:
     """
-    Build the metrics section returned by the analytics API.
+    Generate short-term congestion predictions.
+
+    Rule:
+
+        utilization > 0.80
+        AND
+        utilization is trending upward
+
+        → prediction
     """
-
-    tracker.update(analyzed_nodes)
-
-    congestion_score = 0
-
-    if analyzed_nodes:
-        congestion_score = round(
-            max(
-                node["utilization"]
-                for node in analyzed_nodes
-            ) * 100
-        )
 
     predictions = []
 
-    for node in analyzed_nodes:
-        prediction = tracker.generate_prediction(node)
+    for node in nodes:
 
-        if prediction:
-            predictions.append(prediction)
+        node_id = node.get(
+            "id",
+            "unknown",
+        )
+
+        utilization = float(
+            node.get(
+                "utilization",
+                0,
+            )
+        )
+
+        # -------------------------------------------------
+        # Only predict when already above 80%
+        # -------------------------------------------------
+
+        if utilization <= PREDICTION_THRESHOLD:
+            continue
+
+        # -------------------------------------------------
+        # Need an increasing trend
+        # -------------------------------------------------
+
+        if not tracker.is_increasing(
+            node_id
+        ):
+            continue
+
+        trend = tracker.get_trend(
+            node_id
+        )
+
+        # -------------------------------------------------
+        # Human-readable node name
+        # -------------------------------------------------
+
+        display_name = node_id.replace(
+            "_",
+            " ",
+        ).title()
+
+        predictions.append(
+            (
+                f"High congestion predicted at "
+                f"{display_name} within ~60 seconds."
+            )
+        )
+
+    return predictions
+
+
+# =========================================================
+# BUILD METRICS
+# =========================================================
+
+def build_metrics(
+    nodes: list[dict],
+    tracker: MetricsTracker,
+) -> dict:
+    """
+    Update history and build the complete metrics object.
+    """
+
+    # -----------------------------------------------------
+    # Update utilization history FIRST
+    # -----------------------------------------------------
+
+    tracker.update(
+        nodes
+    )
+
+    # -----------------------------------------------------
+    # Calculate metrics
+    # -----------------------------------------------------
+
+    congestion_score = (
+        calculate_congestion_score(
+            nodes
+        )
+    )
+
+    average_wait = (
+        calculate_average_wait(
+            nodes
+        )
+    )
+
+    predictions = (
+        generate_predictions(
+            nodes,
+            tracker,
+        )
+    )
 
     return {
         "congestion_score": congestion_score,
-        "average_wait": calculate_average_wait(analyzed_nodes),
-        "predictions": predictions
+        "average_wait": average_wait,
+        "predictions": predictions,
     }

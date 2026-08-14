@@ -1,7 +1,22 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="CrowdPilot AI Backend")
+from app.api import simulation
+from app.api import analysis
+
+
+# =========================================================
+# FASTAPI APPLICATION
+# =========================================================
+
+app = FastAPI(
+    title="CrowdPilot AI Backend"
+)
+
+
+# =========================================================
+# CORS
+# =========================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -10,14 +25,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# TODO Person 1: from app.api import simulation; app.include_router(simulation.router)
-# TODO Person 2: from app.api import analysis; app.include_router(analysis.router)
-from app.api import analysis
 
-app.include_router(analysis.router)
+# =========================================================
+# API ROUTERS
+# =========================================================
 
-# TODO Person 3: from app.api import recommendations; app.include_router(recommendations.router)
+# Person 1 — Simulation
+app.include_router(
+    simulation.router
+)
+
+
+# Person 2 — Analytics
+app.include_router(
+    analysis.router
+)
+
+
+# =========================================================
+# HEALTH CHECK
+# =========================================================
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok"
+    }
