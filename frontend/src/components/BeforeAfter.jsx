@@ -1,117 +1,156 @@
-export default function BeforeAfter({ analysis }) {
-  if (!analysis) {
+export default function BeforeAfter({
+  before,
+  after,
+  appliedRoute,
+}) {
+  if (!before) {
     return null;
   }
 
-  const bottleneck =
-    analysis.bottlenecks?.[0];
+  const getNode = (snapshot, nodeId) => {
+    return snapshot?.nodes?.find(
+      (node) => node.id === nodeId
+    );
+  };
 
-  const alternatives =
-    analysis.alternatives ?? [];
+  const fromBefore = getNode(
+    before,
+    appliedRoute?.from_node
+  );
 
-  const currentScore =
-    analysis.metrics?.congestion_score ?? 0;
+  const toBefore = getNode(
+    before,
+    appliedRoute?.to_node
+  );
 
-  const currentRisk =
-    bottleneck
-      ? Math.round(bottleneck.severity * 100)
-      : 0;
+  const fromAfter = getNode(
+    after,
+    appliedRoute?.from_node
+  );
 
-  const recommendedAlternative =
-    alternatives.length > 0
-      ? alternatives[0]
-      : null;
-
-  // Simple projected improvement for the prototype.
-  const projectedScore = Math.max(
-    0,
-    currentScore - 20
+  const toAfter = getNode(
+    after,
+    appliedRoute?.to_node
   );
 
   return (
-    <section className="before-after panel">
+    <section className="before-after">
 
-      <div className="panel-header">
+      <div className="before-after-header">
         <div>
           <h2>Before / After</h2>
-
-          <p className="muted">
-            Prototype Projection
+          <p>
+            Live impact of the applied reroute
           </p>
         </div>
+
+        {appliedRoute && (
+          <div className="route-badge">
+            {appliedRoute.from_node}
+            {" → "}
+            {appliedRoute.to_node}
+          </div>
+        )}
       </div>
 
-
-      <div className="comparison-grid">
+      <div className="before-after-grid">
 
         {/* BEFORE */}
 
-        <div className="comparison-card">
+        <div className="snapshot-card">
 
-          <div className="comparison-title">
-            BEFORE
-          </div>
+          <h3>BEFORE</h3>
 
-          <div className="comparison-risk">
-            {bottleneck
-              ? bottleneck.node_id
-              : "No bottleneck"}
-          </div>
-
-          <div className="comparison-value">
-            {currentRisk}%
-          </div>
-
-          <div className="comparison-label">
-            Highest utilization
-          </div>
-
-          <div className="comparison-score">
-            Congestion score:{" "}
+          <div className="snapshot-metric">
+            <span>Congestion Score</span>
             <strong>
-              {currentScore}
+              {before.metrics?.congestion_score ?? "—"}
             </strong>
           </div>
 
-        </div>
+          <div className="snapshot-metric">
+            <span>Average Wait</span>
+            <strong>
+              {before.metrics?.average_wait ?? "—"} sec
+            </strong>
+          </div>
 
+          <div className="snapshot-metric">
+            <span>
+              {appliedRoute?.from_node ?? "Source"}
+              {" "}Utilization
+            </span>
 
-        {/* ARROW */}
+            <strong>
+              {fromBefore
+                ? `${Math.round(
+                    fromBefore.utilization * 100
+                  )}%`
+                : "—"}
+            </strong>
+          </div>
 
-        <div className="comparison-arrow">
-          →
+          <div className="snapshot-route">
+            {appliedRoute
+              ? `${appliedRoute.from_node} → ${appliedRoute.to_node}`
+              : "No reroute applied"}
+          </div>
+
         </div>
 
 
         {/* AFTER */}
 
-        <div className="comparison-card">
+        <div className="snapshot-card">
 
-          <div className="comparison-title">
-            AFTER
-          </div>
+          <h3>AFTER</h3>
 
-          <div className="comparison-risk">
-            {recommendedAlternative
-              ? recommendedAlternative.node_id
-              : "Alternative unavailable"}
-          </div>
+          {!after ? (
 
-          <div className="comparison-value">
-            {projectedScore}
-          </div>
+            <p className="muted">
+              Waiting for the reroute to settle...
+            </p>
 
-          <div className="comparison-label">
-            Prototype score
-          </div>
+          ) : (
 
-          {recommendedAlternative && (
-            <div className="comparison-score">
-              Available capacity:{" "}
-              <strong>
-                {recommendedAlternative.available_capacity}
-              </strong>
-            </div>
+            <>
+              <div className="snapshot-metric">
+                <span>Congestion Score</span>
+                <strong>
+                  {after.metrics?.congestion_score ?? "—"}
+                </strong>
+              </div>
+
+              <div className="snapshot-metric">
+                <span>Average Wait</span>
+                <strong>
+                  {after.metrics?.average_wait ?? "—"} sec
+                </strong>
+              </div>
+
+              <div className="snapshot-metric">
+                <span>
+                  {appliedRoute?.from_node ?? "Source"}
+                  {" "}Utilization
+                </span>
+
+                <strong>
+                  {fromAfter
+                    ? `${Math.round(
+                        fromAfter.utilization * 100
+                      )}%`
+                    : "—"}
+                </strong>
+              </div>
+
+              <div className="snapshot-route">
+                {appliedRoute
+                  ? `${appliedRoute.from_node} → ${appliedRoute.to_node}`
+                  : "—"}
+              </div>
+
+            </>
+
           )}
 
         </div>
