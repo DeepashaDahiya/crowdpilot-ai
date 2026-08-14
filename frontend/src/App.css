@@ -1,0 +1,296 @@
+/* =========================
+   VENUE MAP
+========================= */
+
+.venue-map-container {
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 22px;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.map-header h2 {
+  margin: 0;
+}
+
+.map-header p {
+  margin: 5px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.map-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #475467;
+}
+
+.map-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.low {
+  background: #22c55e;
+}
+
+.legend-dot.moderate {
+  background: #eab308;
+}
+
+.legend-dot.high {
+  background: #f97316;
+}
+
+.legend-dot.critical {
+  background: #ef4444;
+}
+
+.venue-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.agent-dots circle {
+  fill: #17202a;
+  opacity: 0.7;
+}
+
+/* =========================
+   BEFORE / AFTER
+========================= */
+
+.before-after {
+  margin-top: 20px;
+}
+
+.before-after .panel-header {
+  margin-bottom: 20px;
+}
+
+.before-after h2 {
+  margin-bottom: 5px;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.comparison-card {
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 22px;
+  background: #f8fafc;
+}
+
+.comparison-title {
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.8px;
+  color: #667085;
+}
+
+.comparison-risk {
+  margin-top: 12px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.comparison-value {
+  margin-top: 10px;
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.comparison-label {
+  margin-top: 5px;
+  font-size: 13px;
+  color: #667085;
+}
+
+.comparison-score {
+  margin-top: 18px;
+  font-size: 14px;
+  color: #475467;
+}
+
+.comparison-arrow {
+  text-align: center;
+  font-size: 32px;
+  font-weight: bold;
+}
+
+@media (max-width: 700px) {
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-arrow {
+    transform: rotate(90deg);
+  }
+}
+.live-dot.online {
+  background: #22c55e;
+}
+
+.live-dot.offline {
+  background: #ef4444;
+}
+
+/* =====================================================
+   RECOMMENDATION PANEL
+===================================================== */
+
+.recommendation-panel {
+  border: 1px solid #dbe3ec;
+}
+
+.panel-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.recommendation-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 5px 10px;
+
+  border-radius: 999px;
+
+  background: #eef2ff;
+  color: #4f46e5;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recommendation-action {
+  margin-top: 18px;
+  padding: 16px;
+
+  border-radius: 12px;
+
+  background: #f8fafc;
+}
+
+.action-label,
+.reason-label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.recommendation-action h3 {
+  margin: 0;
+
+  font-size: 22px;
+}
+
+.recommendation-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+
+  gap: 12px;
+
+  margin-top: 14px;
+}
+
+.recommendation-stat {
+  padding: 14px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: white;
+}
+
+.recommendation-stat span {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.recommendation-stat strong {
+  font-size: 18px;
+}
+
+.recommendation-reason,
+.recommendation-effect {
+  margin-top: 16px;
+}
+
+.recommendation-reason p,
+.recommendation-effect p {
+  margin: 0;
+
+  color: #475569;
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.apply-button {
+  width: 100%;
+
+  margin-top: 20px;
+  padding: 12px 16px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: #111827;
+  color: white;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.apply-button:hover {
+  transform: translateY(-1px);
+}
+
+.apply-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
