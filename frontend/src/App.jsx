@@ -2,15 +2,23 @@
 // Person 2: VenueMap + KPI Cards + analytics
 // Person 3: RecommendationPanel can be connected to live API later
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import VenueMap from "./components/VenueMap";
 import BeforeAfter from "./components/BeforeAfter";
 import RecommendationPanel from "./components/RecommendationPanel";
+
 import "./App.css";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "http://127.0.0.1:8000";
+
+const AFTER_DELAY_MS = 3000;
 
 export default function App() {
   const [analysis, setAnalysis] = useState(null);
@@ -25,16 +33,52 @@ export default function App() {
     useState(false);
 
   // ==========================================
+  // BEFORE / AFTER STATE
+  // ==========================================
+
+  // Snapshot immediately before Apply
+  const [beforeSnapshot, setBeforeSnapshot] =
+    useState(null);
+
+  // Snapshot from a later live /analysis poll
+  const [afterSnapshot, setAfterSnapshot] =
+    useState(null);
+
+  // The EXACT route that was applied.
+  // This must never be recalculated from the latest bottleneck.
+  const [appliedRoute, setAppliedRoute] =
+    useState(null);
+
+  // Used to know when the reroute was applied.
+  const applyTimestampRef = useRef(null);
+
+  // Prevents repeatedly replacing the After snapshot
+  // after it has already been captured.
+  const afterCapturedRef = useRef(false);
+
+  // ==========================================
   // TEMPORARY RECOMMENDATION MOCK
   // ==========================================
-  // This will later be replaced by P3's
-  // /recommendation endpoint.
+  // Later replace this with P3's live
+  // /recommendation response.
+  //
+  // IMPORTANT:
+  // from_node and to_node are now included
+  // because Before/After must remember the
+  // actual route that was applied.
 
   const mockRecommendation = {
     action: "Open Exit C",
+
+    from_node: "exit_a",
+
+    to_node: "exit_c",
+
     redirect_percentage: 30,
+
     reason:
       "Exit A is critically congested while Exit C has substantial available capacity.",
+
     expected_effect:
       "Reduce congestion around Exit A.",
   };
@@ -57,22 +101,59 @@ export default function App() {
 
       const data = await response.json();
 
-      // Update analytics
+      // ========================================
+      // UPDATE LIVE ANALYTICS
+      // ========================================
+
       setAnalysis(data);
 
-      // Backend is working
       setBackendOnline(true);
 
-      // Clear previous error
       setError(null);
 
-      // Store latest successful update time
       setLastUpdated(new Date());
 
-      // Temporary recommendation
-      // Later replace with P3 API response.
+      // ========================================
+      // TEMPORARY RECOMMENDATION
+      // ========================================
+      // Later replace this with:
+      //
+      // const recommendationResponse =
+      //   await fetch(`${API_URL}/recommendation`, ...)
+      //
+      // and then:
+      //
+      // setRecommendation(recommendationData);
+
       setRecommendation(mockRecommendation);
 
+      // ========================================
+      // CAPTURE AFTER SNAPSHOT
+      // ========================================
+      //
+      // We DO NOT immediately use the current
+      // analysis as "After".
+      //
+      // We wait a few seconds so the simulation
+      // has time to process the reroute.
+      //
+      // The After snapshot is therefore based
+      // on a NEW live /analysis response.
+
+      if (
+        applyTimestampRef.current !== null &&
+        !afterCapturedRef.current
+      ) {
+        const elapsed =
+          Date.now() -
+          applyTimestampRef.current;
+
+        if (elapsed >= AFTER_DELAY_MS) {
+          setAfterSnapshot(data);
+
+          afterCapturedRef.current = true;
+        }
+      }
     } catch (err) {
       console.error(err);
 
@@ -88,38 +169,155 @@ export default function App() {
   // APPLY RECOMMENDATION
   // ==========================================
 
-  async function handleApplyRecommendation() {
+  async function handleApplyRecommendation(
+    selectedRecommendation
+  ) {
+    if (!selectedRecommendation) {
+      console.error(
+        "No recommendation available to apply."
+      );
+
+      return;
+    }
+
     try {
       setApplyingRecommendation(true);
 
       console.log(
         "Applying recommendation:",
-        recommendation
+        selectedRecommendation
       );
 
-      /*
-       * TEMPORARY MOCK
-       *
-       * Later this will call P3:
-       *
-       * POST /recommendation/apply
-       *
-       */
+      // ========================================
+      // 1. CAPTURE BEFORE
+      // ========================================
+      //
+      // This is the exact live state immediately
+      // before the reroute.
 
-      await new Promise(
-        (resolve) =>
-          setTimeout(resolve, 1000)
+      if (analysis) {
+        setBeforeSnapshot(analysis);
+      }
+
+      // ========================================
+      // 2. CAPTURE EXACT ROUTE
+      // ========================================
+      //
+      // NEVER calculate this later from
+      // bottlenecks[0].
+      //
+      // The route shown in Before/After must be
+      // the route that was actually applied.
+
+      const fromNode =
+        selectedRecommendation.from_node ||
+        selectedRecommendation.fromNode ||
+        "exit_a";
+
+      const toNode =
+        selectedRecommendation.to_node ||
+        selectedRecommendation.toNode ||
+        "exit_c";
+
+      const redirectPercentage =
+        selectedRecommendation.redirect_percentage ??
+        0;
+
+      setAppliedRoute({
+        from_node: fromNode,
+
+        to_node: toNode,
+
+        redirect_percentage:
+          redirectPercentage,
+      });
+
+      // Clear previous After snapshot.
+      setAfterSnapshot(null);
+
+      // Allow a new After snapshot to be captured.
+      afterCapturedRef.current = false;
+
+      // Start the timer used by fetchAnalysis().
+      applyTimestampRef.current = Date.now();
+
+      // ========================================
+      // 3. APPLY THE ACTUAL REROUTE
+      // ========================================
+      //
+      // TEMPORARY MOCK
+      //
+      // Replace this block with the real P3
+      // /apply-recommendation endpoint once
+      // Person 3's API is connected.
+      //
+      // The project contract says Apply should
+      // ultimately call:
+      //
+      // from_node
+      // to_node
+      // redirect_percentage
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000)
       );
 
       console.log(
-        "Recommendation applied successfully."
+        "Recommendation applied successfully:",
+        {
+          from_node: fromNode,
+          to_node: toNode,
+          redirect_percentage:
+            redirectPercentage,
+        }
       );
+
+      // ========================================
+      // REAL API VERSION
+      // ========================================
+      //
+      // When P3's endpoint is ready, replace
+      // the temporary mock above with:
+      //
+      // const response = await fetch(
+      //   `${API_URL}/apply-recommendation`,
+      //   {
+      //     method: "POST",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //     },
+      //     body: JSON.stringify({
+      //       from_node: fromNode,
+      //       to_node: toNode,
+      //       redirect_percentage:
+      //         redirectPercentage,
+      //     }),
+      //   }
+      // );
+      //
+      // if (!response.ok) {
+      //   throw new Error(
+      //     `Apply API error: ${response.status}`
+      //   );
+      // }
 
     } catch (err) {
       console.error(
         "Failed to apply recommendation:",
         err
       );
+
+      // If Apply fails, don't pretend that a
+      // reroute happened.
+      applyTimestampRef.current = null;
+
+      afterCapturedRef.current = true;
+
+      setAfterSnapshot(null);
+
+      setAppliedRoute(null);
+
+      setBeforeSnapshot(null);
     } finally {
       setApplyingRecommendation(false);
     }
@@ -154,8 +352,11 @@ export default function App() {
       <div className="app">
 
         <header className="header">
+
           <div>
-            <h1>CrowdPilot AI</h1>
+            <h1>
+              CrowdPilot AI
+            </h1>
 
             <p>
               Real-Time Crowd Intelligence
@@ -163,12 +364,17 @@ export default function App() {
           </div>
 
           <div className="live-indicator">
+
             <span className="live-dot offline" />
+
             CONNECTING...
+
           </div>
+
         </header>
 
         <div className="loading-state">
+
           <h2>
             Loading crowd analytics...
           </h2>
@@ -176,6 +382,7 @@ export default function App() {
           <p>
             Connecting to the CrowdPilot backend.
           </p>
+
         </div>
 
       </div>
@@ -191,18 +398,27 @@ export default function App() {
       <div className="app">
 
         <header className="header">
+
           <div>
-            <h1>CrowdPilot AI</h1>
+
+            <h1>
+              CrowdPilot AI
+            </h1>
 
             <p>
               Real-Time Crowd Intelligence
             </p>
+
           </div>
 
           <div className="live-indicator">
+
             <span className="live-dot offline" />
+
             OFFLINE
+
           </div>
+
         </header>
 
         <div className="error-state">
@@ -347,11 +563,8 @@ export default function App() {
           </div>
 
           <div className="kpi-subtext">
-
             {crowd.moving}
-
             {" "}currently moving
-
           </div>
 
         </div>
@@ -589,10 +802,32 @@ export default function App() {
           ================================== */}
 
           <RecommendationPanel
-            recommendation={recommendation}
-            onApply={
-              handleApplyRecommendation
+            recommendation={
+              recommendation
             }
+
+            /*
+             * IMPORTANT:
+             *
+             * Your RecommendationPanel currently
+             * does:
+             *
+             * onClick={onApply}
+             *
+             * Therefore we explicitly pass the
+             * current recommendation here.
+             *
+             * This guarantees App receives the
+             * recommendation object rather than
+             * the click event.
+             */
+
+            onApply={() =>
+              handleApplyRecommendation(
+                recommendation
+              )
+            }
+
             applying={
               applyingRecommendation
             }
@@ -608,7 +843,11 @@ export default function App() {
       ====================================== */}
 
       <BeforeAfter
-        analysis={analysis}
+        before={beforeSnapshot}
+
+        after={afterSnapshot}
+
+        appliedRoute={appliedRoute}
       />
 
     </div>

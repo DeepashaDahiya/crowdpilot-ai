@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import simulation
+#from app.api import simulation
 from app.api import analysis
 
 
@@ -31,9 +31,7 @@ app.add_middleware(
 # =========================================================
 
 # Person 1 — Simulation
-app.include_router(
-    simulation.router
-)
+# app.include_router(simulation.router)
 
 
 # Person 2 — Analytics
