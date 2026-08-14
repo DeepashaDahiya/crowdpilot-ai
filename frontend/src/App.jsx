@@ -25,19 +25,7 @@ export default function App() {
     useState(false);
 
   // ==========================================
-  // TEMPORARY RECOMMENDATION MOCK
-  // ==========================================
-  // This will later be replaced by P3's
-  // /recommendation endpoint.
-
-  const mockRecommendation = {
-    action: "Open Exit C",
-    redirect_percentage: 30,
-    reason:
-      "Exit A is critically congested while Exit C has substantial available capacity.",
-    expected_effect:
-      "Reduce congestion around Exit A.",
-  };
+  
 
   // ==========================================
   // FETCH ANALYTICS
@@ -69,9 +57,17 @@ export default function App() {
       // Store latest successful update time
       setLastUpdated(new Date());
 
-      // Temporary recommendation
-      // Later replace with P3 API response.
-      setRecommendation(mockRecommendation);
+      // Fetch live AI recommendation
+      try {
+        const recResponse = await fetch(`${API_URL}/recommendation`, {
+          method: "POST",
+        });
+        const recData = await recResponse.json();
+        setRecommendation(recData.recommendation || null);
+      } catch (recErr) {
+        console.error("Failed to fetch recommendation:", recErr);
+        setRecommendation(null);
+      }
 
     } catch (err) {
       console.error(err);
@@ -89,37 +85,29 @@ export default function App() {
   // ==========================================
 
   async function handleApplyRecommendation() {
+    if (!recommendation) return;
+
     try {
       setApplyingRecommendation(true);
 
-      console.log(
-        "Applying recommendation:",
-        recommendation
-      );
+      const response = await fetch(`${API_URL}/apply-recommendation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from_node: recommendation.from_node,
+          to_node: recommendation.to_node,
+          redirect_percentage: recommendation.redirect_percentage,
+        }),
+      });
 
-      /*
-       * TEMPORARY MOCK
-       *
-       * Later this will call P3:
-       *
-       * POST /recommendation/apply
-       *
-       */
+      const result = await response.json();
+      console.log("Recommendation applied:", result);
 
-      await new Promise(
-        (resolve) =>
-          setTimeout(resolve, 1000)
-      );
-
-      console.log(
-        "Recommendation applied successfully."
-      );
+      // Refresh analytics right away to show the effect
+      await fetchAnalysis();
 
     } catch (err) {
-      console.error(
-        "Failed to apply recommendation:",
-        err
-      );
+      console.error("Failed to apply recommendation:", err);
     } finally {
       setApplyingRecommendation(false);
     }
