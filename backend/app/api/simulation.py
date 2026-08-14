@@ -12,7 +12,7 @@ async def tick_loop():
     while True:
         if sim["status"] == "running" and sim["engine"] is not None:
             sim["engine"].step()
-        await asyncio.sleep(5) #5 hops × 5s = 25s total journey, safely outlasts AI round-trip latency
+        await asyncio.sleep(1)  # compromise: faster visual movement than 5s, but safer than 0.5s given AI round-trip latency
 
 @router.post("/simulation/start")
 def start():
