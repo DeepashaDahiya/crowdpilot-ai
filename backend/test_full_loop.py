@@ -14,7 +14,7 @@ print("2. Starting simulation...")
 requests.post(f"{BASE}/simulation/start")
 
 print("3. Waiting for agents to build congestion at an exit...")
-time.sleep(22)  # ~3 ticks, agents should be at exits by now
+time.sleep(6)  # ~3 ticks, agents should be at exits by now
 
 before = requests.get(f"{BASE}/analysis").json()
 print("BEFORE:", before["metrics"], before["bottlenecks"])
