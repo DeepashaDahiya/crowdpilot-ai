@@ -10,17 +10,19 @@ class Engine:
 
 
     def step(self):
-        for agent in self.agents:
-            if agent.state == "arrived":
-                continue
-            if agent.current_node == agent.destination:
+     for agent in self.agents:
+        if agent.state == "arrived":
+            continue
+        if agent.current_node == agent.destination:
+            if not hasattr(agent, "dwell_ticks"):
+                agent.dwell_ticks = 0
+            agent.dwell_ticks += 1
+            if agent.dwell_ticks >= 30:  # generous window — agents stay reroutable well past typical demo interaction time
                 agent.state = "arrived"
-                continue
-            current_index = agent.route.index(agent.current_node)
-            if current_index + 1 < len(agent.route):
-                agent.current_node = agent.route[current_index + 1]
-            if agent.current_node == agent.destination:
-                agent.state = "arrived"
+            continue
+        current_index = agent.route.index(agent.current_node)
+        if current_index + 1 < len(agent.route):
+            agent.current_node = agent.route[current_index + 1]
 
     def get_state(self):
         occupancy = {}

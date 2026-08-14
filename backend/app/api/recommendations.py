@@ -55,6 +55,11 @@ def recommend():
     parsed = get_structured_recommendation(analytics, candidates)
     validated = validate_recommendation(parsed, candidates)
 
+    # attach the actual from_node/to_node used, so callers never have to guess
+    matching_candidate = next((c for c in candidates if c["action"] == validated["action"]), candidates[0])
+    validated["from_node"] = matching_candidate["from_node"]
+    validated["to_node"] = matching_candidate["to_node"]
+
     return {"status": "ok", "recommendation": validated}
 
 
