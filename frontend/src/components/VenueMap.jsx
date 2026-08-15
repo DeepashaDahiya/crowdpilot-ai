@@ -1,212 +1,623 @@
+import React, { useEffect, useMemo, useState } from "react";
+
+
+// =====================================================
+// NODE COLORS
+// =====================================================
+
 function utilizationToColor(value) {
   if (value < 0.6) {
-    return "#22c55e"; // green
+    return "#22c55e";
   }
 
   if (value < 0.8) {
-    return "#eab308"; // yellow
+    return "#eab308";
   }
 
   if (value < 0.9) {
-    return "#f97316"; // orange
+    return "#f97316";
   }
 
-  return "#ef4444"; // red
+  return "#ef4444";
 }
 
 
+// =====================================================
+// NODE LOOKUP
+// =====================================================
+
 function getNode(analysis, id) {
-  return analysis?.nodes?.find(
-    (node) => node.id === id
+  return (
+    analysis?.nodes?.find(
+      (node) => node.id === id
+    ) || null
   );
 }
 
 
-function Node({
+// =====================================================
+// VENUE POSITIONS
+// =====================================================
+
+const POSITIONS = {
+  gate_a: {
+    x: 75,
+    y: 285,
+  },
+
+  corridor_1: {
+    x: 210,
+    y: 285,
+  },
+
+  corridor_2: {
+    x: 340,
+    y: 285,
+  },
+
+  corridor_3: {
+    x: 470,
+    y: 285,
+  },
+
+  main_hall: {
+    x: 600,
+    y: 285,
+  },
+
+  food_court: {
+    x: 600,
+    y: 505,
+  },
+
+  exit_a: {
+    x: 1060,
+    y: 115,
+  },
+
+  exit_b: {
+    x: 1080,
+    y: 285,
+  },
+
+  exit_c: {
+    x: 1050,
+    y: 500,
+  },
+};
+
+
+// =====================================================
+// DETERMINISTIC RANDOM
+// =====================================================
+
+function random(seed) {
+  const value =
+    Math.sin(seed * 999.123) *
+    43758.5453;
+
+  return (
+    value -
+    Math.floor(value)
+  );
+}
+
+
+// =====================================================
+// SCATTER CROWD
+// =====================================================
+
+function getCrowdPosition(
+  nodeId,
+  index
+) {
+  const rx =
+    random(index * 13 + 4);
+
+  const ry =
+    random(index * 31 + 8);
+
+  // -----------------------------------------------
+  // MAIN HALL
+  // -----------------------------------------------
+
+  if (
+    nodeId === "main_hall" ||
+    nodeId === "corridor_1" ||
+    nodeId === "corridor_2" ||
+    nodeId === "corridor_3"
+  ) {
+    return {
+      x:
+        300 +
+        rx * 450,
+
+      y:
+        175 +
+        ry * 210,
+    };
+  }
+
+
+  // -----------------------------------------------
+  // GATE
+  // -----------------------------------------------
+
+  if (nodeId === "gate_a") {
+    return {
+      x:
+        80 +
+        rx * 160,
+
+      y:
+        265 +
+        ry * 45,
+    };
+  }
+
+
+  // -----------------------------------------------
+  // FOOD COURT
+  // -----------------------------------------------
+
+  if (nodeId === "food_court") {
+    return {
+      x:
+        470 +
+        rx * 250,
+
+      y:
+        460 +
+        ry * 75,
+    };
+  }
+
+
+  // -----------------------------------------------
+  // EXIT A
+  // -----------------------------------------------
+
+  if (nodeId === "exit_a") {
+    return {
+      x:
+        950 +
+        rx * 100,
+
+      y:
+        80 +
+        ry * 90,
+    };
+  }
+
+
+  // -----------------------------------------------
+  // EXIT B
+  // -----------------------------------------------
+
+  if (nodeId === "exit_b") {
+    return {
+      x:
+        950 +
+        rx * 100,
+
+      y:
+        255 +
+        ry * 60,
+    };
+  }
+
+
+  // -----------------------------------------------
+  // EXIT C
+  // -----------------------------------------------
+
+  if (nodeId === "exit_c") {
+    return {
+      x:
+        950 +
+        rx * 100,
+
+      y:
+        470 +
+        ry * 60,
+    };
+  }
+
+
+  return {
+    x: 600,
+    y: 285,
+  };
+}
+
+
+// =====================================================
+// DESTINATION COLOR
+// =====================================================
+
+function getCrowdColor(agent) {
+  if (
+    agent.destination ===
+    "exit_a"
+  ) {
+    return "#f97316";
+  }
+
+  if (
+    agent.destination ===
+    "exit_b"
+  ) {
+    return "#22c55e";
+  }
+
+  if (
+    agent.destination ===
+    "exit_c"
+  ) {
+    return "#06b6d4";
+  }
+
+  return "#2563eb";
+}
+
+
+// =====================================================
+// VENUE NODE
+// =====================================================
+
+function VenueNode({
   x,
   y,
   label,
   node,
-  radius = 24,
 }) {
-  const utilization = node?.utilization ?? 0;
+  const utilization =
+    node?.utilization ?? 0;
 
-  const color = utilizationToColor(
-    utilization
-  );
+  const color =
+    utilizationToColor(
+      utilization
+    );
 
   return (
     <g>
-      {/* Node circle */}
+
       <circle
         cx={x}
         cy={y}
-        r={radius}
-        fill={color}
-        stroke="#17202a"
+        r="30"
+        fill="white"
+        stroke={color}
         strokeWidth="2"
+        opacity="0.35"
       />
 
-      {/* Utilization */}
+      <circle
+        cx={x}
+        cy={y}
+        r="23"
+        fill="white"
+        stroke={color}
+        strokeWidth="3"
+      />
+
       <text
         x={x}
         y={y + 5}
         textAnchor="middle"
         fontSize="12"
-        fontWeight="bold"
-        fill="white"
+        fontWeight="700"
+        fill="#0f172a"
       >
-        {Math.round(utilization * 100)}%
+        {Math.round(
+          utilization * 100
+        )}
+        %
       </text>
 
-      {/* Label */}
       <text
         x={x}
-        y={y + radius + 18}
+        y={y + 46}
         textAnchor="middle"
-        fontSize="13"
+        fontSize="12"
         fontWeight="600"
-        fill="#17202a"
+        fill="#334155"
       >
         {label}
       </text>
+
     </g>
   );
 }
 
 
-function createAgentPositions(count) {
-  const positions = [];
+// =====================================================
+// MAIN COMPONENT
+// =====================================================
 
-  const areas = [
-    { x: 300, y: 210 },
-    { x: 340, y: 280 },
-    { x: 390, y: 220 },
-    { x: 430, y: 290 },
-    { x: 500, y: 210 },
-    { x: 550, y: 280 },
-    { x: 590, y: 230 },
-    { x: 620, y: 290 },
-    { x: 400, y: 420 },
-    { x: 470, y: 420 },
-    { x: 520, y: 450 },
-  ];
+export default function VenueMap({
+  analysis,
+}) {
 
-  for (let i = 0; i < count; i++) {
-    const area = areas[i % areas.length];
+  const backendAgents =
+    analysis?.agents || [];
 
-    const offsetX = ((i * 17) % 30) - 15;
-    const offsetY = ((i * 23) % 30) - 15;
+  const total =
+    analysis?.crowd?.total ?? 0;
 
-    positions.push({
-      x: area.x + offsetX,
-      y: area.y + offsetY,
-    });
-  }
-
-  return positions;
-}
-
-
-export default function VenueMap({ analysis }) {
-
-  // ==========================================
-  // GET VENUE NODES
-  // ==========================================
-
-  const gateA = getNode(
-    analysis,
-    "gate_a"
-  );
-
-  const mainHall = getNode(
-    analysis,
-    "main_hall"
-  );
-
-  const foodCourt = getNode(
-    analysis,
-    "food_court"
-  );
-
-  const exitA = getNode(
-    analysis,
-    "exit_a"
-  );
-
-  const exitB = getNode(
-    analysis,
-    "exit_b"
-  );
-
-  const exitC = getNode(
-    analysis,
-    "exit_c"
-  );
-
-
-  // ==========================================
-  // LIVE CROWD → AGENT DOTS
-  // ==========================================
-
-  const movingCrowd =
+  const moving =
     analysis?.crowd?.moving ?? 0;
 
-  // Each dot represents approximately
-  // 10 moving people.
-
-  const agentCount = Math.min(
-    60,
-    Math.ceil(movingCrowd / 10)
-  );
-
-  const agentPositions =
-    createAgentPositions(agentCount);
+  const congestion =
+    analysis?.metrics
+      ?.congestion_score ?? 0;
 
 
-  // ==========================================
-  // MAP
-  // ==========================================
+  // ===================================================
+  // CREATE VISIBLE AGENTS
+  //
+  // IMPORTANT:
+  // Even if backend says moving = 0,
+  // we still show the existing crowd.
+  // ===================================================
+
+  const visibleAgents =
+    useMemo(() => {
+
+      if (
+        backendAgents.length > 0
+      ) {
+        return backendAgents
+          .slice(0, 250);
+      }
+
+      return [];
+    }, [backendAgents]);
+
+
+  // ===================================================
+  // LOCAL ANIMATION STATE
+  // ===================================================
+
+  const [animationTick, setAnimationTick] =
+    useState(0);
+
+
+  useEffect(() => {
+
+    const interval =
+      setInterval(() => {
+
+        setAnimationTick(
+          value => value + 1
+        );
+
+      }, 80);
+
+    return () => {
+      clearInterval(interval);
+    };
+
+  }, []);
+
+
+  // ===================================================
+  // COMPUTE CROWD POSITIONS
+  // ===================================================
+
+  const crowdDots =
+    useMemo(() => {
+
+      return visibleAgents.map(
+        (agent, index) => {
+
+          const current =
+            getCrowdPosition(
+              agent.current_node,
+              index
+            );
+
+          const destination =
+            getCrowdPosition(
+              agent.destination,
+              index
+            );
+
+
+          /*
+           * Each dot gets a slightly
+           * different movement phase.
+           */
+
+          const phase =
+            (index * 0.137) +
+            animationTick * 0.035;
+
+
+          /*
+           * Smooth movement.
+           */
+
+          const progress =
+            (
+              Math.sin(phase) +
+              1
+            ) / 2;
+
+
+          /*
+           * Keep most of the crowd
+           * inside the hall.
+           *
+           * Dots only gradually move
+           * toward their destination.
+           */
+
+          const x =
+            current.x +
+            (
+              destination.x -
+              current.x
+            ) *
+            progress *
+            0.35;
+
+
+          const y =
+            current.y +
+            (
+              destination.y -
+              current.y
+            ) *
+            progress *
+            0.35;
+
+
+          /*
+           * Small organic movement.
+           */
+
+          const wobbleX =
+            Math.sin(
+              phase * 2.1
+            ) * 4;
+
+          const wobbleY =
+            Math.cos(
+              phase * 1.7
+            ) * 4;
+
+
+          return {
+            id:
+              agent.id ??
+              `agent-${index}`,
+
+            x:
+              x + wobbleX,
+
+            y:
+              y + wobbleY,
+
+            color:
+              getCrowdColor(
+                agent
+              ),
+          };
+        }
+      );
+
+    }, [
+      visibleAgents,
+      animationTick,
+    ]);
+
+
+  // ===================================================
+  // NODES
+  // ===================================================
+
+  const gateA =
+    getNode(
+      analysis,
+      "gate_a"
+    );
+
+  const mainHall =
+    getNode(
+      analysis,
+      "main_hall"
+    );
+
+  const foodCourt =
+    getNode(
+      analysis,
+      "food_court"
+    );
+
+  const exitA =
+    getNode(
+      analysis,
+      "exit_a"
+    );
+
+  const exitB =
+    getNode(
+      analysis,
+      "exit_b"
+    );
+
+  const exitC =
+    getNode(
+      analysis,
+      "exit_c"
+    );
+
+
+  // ===================================================
+  // RENDER
+  // ===================================================
 
   return (
     <div className="venue-map-container">
 
-      {/* ====================================
-          MAP HEADER
-      ===================================== */}
+      {/* =================================================
+          HEADER
+      ================================================= */}
 
-      <div className="map-header">
+      <div className="venue-map-header">
 
         <div>
-          <h2>Venue Map</h2>
+
+          <div className="venue-title-row">
+
+            <h2>
+              Venue Map
+            </h2>
+
+            <span className="live-badge">
+
+              <span className="live-dot" />
+
+              LIVE
+
+            </span>
+
+          </div>
 
           <p>
-            Live crowd utilization
+            Real-time crowd movement
           </p>
+
         </div>
 
 
-        {/* Legend */}
+        {/* LEGEND */}
 
         <div className="map-legend">
 
           <span>
-            <i className="legend-dot low"></i>
+            <i className="legend-dot crowd" />
+            Crowd
+          </span>
+
+          <span>
+            <i className="legend-dot low" />
             Low
           </span>
 
           <span>
-            <i className="legend-dot moderate"></i>
+            <i className="legend-dot moderate" />
             Moderate
           </span>
 
           <span>
-            <i className="legend-dot high"></i>
+            <i className="legend-dot high" />
             High
           </span>
 
           <span>
-            <i className="legend-dot critical"></i>
+            <i className="legend-dot critical" />
             Critical
           </span>
 
@@ -215,224 +626,333 @@ export default function VenueMap({ analysis }) {
       </div>
 
 
-      {/* ====================================
-          SVG VENUE MAP
-      ===================================== */}
+      {/* =================================================
+          MAP
+      ================================================= */}
 
-      <svg
-        className="venue-svg"
-        viewBox="0 0 900 560"
-        role="img"
-        aria-label="CrowdPilot venue map"
-      >
+      <div className="venue-map-wrapper">
 
-        {/* ==================================
-            VENUE STRUCTURE
-        =================================== */}
-
-        {/* Main Hall */}
-
-        <rect
-          x="220"
-          y="120"
-          width="460"
-          height="250"
-          rx="20"
-          fill="#f8fafc"
-          stroke="#94a3b8"
-          strokeWidth="3"
-        />
-
-        <text
-          x="450"
-          y="155"
-          textAnchor="middle"
-          fontSize="18"
-          fontWeight="bold"
-          fill="#475569"
+        <svg
+          className="venue-svg"
+          viewBox="0 0 1150 620"
+          preserveAspectRatio="xMidYMid meet"
         >
-          MAIN HALL
-        </text>
 
+          {/* ============================================
+              GRID
+          ============================================ */}
 
-        {/* Food Court */}
+          <defs>
 
-        <rect
-          x="330"
-          y="390"
-          width="240"
-          height="90"
-          rx="15"
-          fill="#f8fafc"
-          stroke="#94a3b8"
-          strokeWidth="3"
-        />
-
-        <text
-          x="450"
-          y="440"
-          textAnchor="middle"
-          fontSize="16"
-          fontWeight="bold"
-          fill="#475569"
-        >
-          FOOD COURT
-        </text>
-
-
-        {/* ==================================
-            CORRIDORS / PATHS
-        =================================== */}
-
-        {/* Gate A → Main Hall */}
-
-        <line
-          x1="110"
-          y1="250"
-          x2="220"
-          y2="250"
-          stroke="#64748b"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-
-
-        {/* Main Hall corridor */}
-
-        <line
-          x1="300"
-          y1="250"
-          x2="600"
-          y2="250"
-          stroke="#64748b"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-
-
-        {/* Main Hall → Food Court */}
-
-        <line
-          x1="450"
-          y1="370"
-          x2="450"
-          y2="390"
-          stroke="#64748b"
-          strokeWidth="14"
-        />
-
-
-        {/* Main Hall → Exit A */}
-
-        <line
-          x1="680"
-          y1="180"
-          x2="790"
-          y2="100"
-          stroke="#64748b"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-
-
-        {/* Main Hall → Exit B */}
-
-        <line
-          x1="680"
-          y1="250"
-          x2="810"
-          y2="250"
-          stroke="#64748b"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-
-
-        {/* Food Court → Exit C */}
-
-        <line
-          x1="570"
-          y1="435"
-          x2="790"
-          y2="470"
-          stroke="#64748b"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-
-
-        {/* ==================================
-            VENUE NODES
-        =================================== */}
-
-        <Node
-          x={110}
-          y={250}
-          label="Gate A"
-          node={gateA}
-        />
-
-
-        <Node
-          x={450}
-          y={250}
-          label="Main Hall"
-          node={mainHall}
-        />
-
-
-        <Node
-          x={450}
-          y={435}
-          label="Food Court"
-          node={foodCourt}
-        />
-
-
-        <Node
-          x={790}
-          y={100}
-          label="Exit A"
-          node={exitA}
-        />
-
-
-        <Node
-          x={810}
-          y={250}
-          label="Exit B"
-          node={exitB}
-        />
-
-
-        <Node
-          x={790}
-          y={470}
-          label="Exit C"
-          node={exitC}
-        />
-
-
-        {/* ==================================
-            LIVE CROWD DOTS
-        =================================== */}
-
-        <g className="agent-dots">
-
-          {agentPositions.map(
-            (position, index) => (
-              <circle
-                key={index}
-                cx={position.x}
-                cy={position.y}
-                r="4"
+            <pattern
+              id="smallGrid"
+              width="24"
+              height="24"
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M 24 0 L 0 0 0 24"
+                fill="none"
+                stroke="#f1f5f9"
+                strokeWidth="1"
               />
-            )
-          )}
+            </pattern>
 
-        </g>
 
-      </svg>
+            <filter
+              id="crowdGlow"
+              x="-100%"
+              y="-100%"
+              width="300%"
+              height="300%"
+            >
+
+              <feGaussianBlur
+                stdDeviation="1.8"
+                result="blur"
+              />
+
+              <feMerge>
+
+                <feMergeNode
+                  in="blur"
+                />
+
+                <feMergeNode
+                  in="SourceGraphic"
+                />
+
+              </feMerge>
+
+            </filter>
+
+          </defs>
+
+
+          <rect
+            width="1150"
+            height="620"
+            fill="url(#smallGrid)"
+          />
+
+
+          {/* ============================================
+              MAIN HALL
+          ============================================ */}
+
+          <rect
+            x="245"
+            y="105"
+            width="620"
+            height="350"
+            rx="24"
+            fill="#f8fafc"
+            stroke="#cbd5e1"
+            strokeWidth="2"
+          />
+
+          <rect
+            x="260"
+            y="120"
+            width="590"
+            height="320"
+            rx="18"
+            fill="white"
+            stroke="#e2e8f0"
+            strokeWidth="1"
+          />
+
+          <text
+            x="555"
+            y="155"
+            textAnchor="middle"
+            fontSize="17"
+            fontWeight="700"
+            fill="#334155"
+          >
+            MAIN HALL
+          </text>
+
+
+          {/* ============================================
+              FOOD COURT
+          ============================================ */}
+
+          <rect
+            x="430"
+            y="480"
+            width="340"
+            height="95"
+            rx="18"
+            fill="#f8fafc"
+            stroke="#cbd5e1"
+            strokeWidth="2"
+          />
+
+          <text
+            x="600"
+            y="525"
+            textAnchor="middle"
+            fontSize="15"
+            fontWeight="700"
+            fill="#475569"
+          >
+            FOOD COURT
+          </text>
+
+
+          {/* ============================================
+              PATHS
+              
+              NO ARROWS
+          ============================================ */}
+
+          <line
+            x1="75"
+            y1="285"
+            x2="245"
+            y2="285"
+            stroke="#d1d5db"
+            strokeWidth="11"
+            strokeLinecap="round"
+          />
+
+          <line
+            x1="245"
+            y1="285"
+            x2="865"
+            y2="285"
+            stroke="#d1d5db"
+            strokeWidth="11"
+            strokeLinecap="round"
+          />
+
+          <line
+            x1="865"
+            y1="220"
+            x2="1060"
+            y2="115"
+            stroke="#e2e8f0"
+            strokeWidth="9"
+            strokeLinecap="round"
+          />
+
+          <line
+            x1="865"
+            y1="285"
+            x2="1080"
+            y2="285"
+            stroke="#e2e8f0"
+            strokeWidth="9"
+            strokeLinecap="round"
+          />
+
+          <line
+            x1="600"
+            y1="455"
+            x2="600"
+            y2="480"
+            stroke="#e2e8f0"
+            strokeWidth="9"
+          />
+
+          <line
+            x1="770"
+            y1="525"
+            x2="1050"
+            y2="500"
+            stroke="#e2e8f0"
+            strokeWidth="9"
+            strokeLinecap="round"
+          />
+
+
+          {/* ============================================
+              CROWD DOTS
+          ============================================ */}
+
+          <g
+            className="crowd-layer"
+          >
+
+            {crowdDots.map(
+              (dot) => (
+
+                <circle
+                  key={dot.id}
+                  cx={dot.x}
+                  cy={dot.y}
+                  r="4.2"
+                  fill={dot.color}
+                  opacity="0.85"
+                  filter="url(#crowdGlow)"
+                  className="crowd-dot"
+                />
+
+              )
+            )}
+
+          </g>
+
+
+          {/* ============================================
+              VENUE NODES
+          ============================================ */}
+
+          <VenueNode
+            x={75}
+            y={285}
+            label="Gate A"
+            node={gateA}
+          />
+
+          <VenueNode
+            x={600}
+            y={285}
+            label="Main Hall"
+            node={mainHall}
+          />
+
+          <VenueNode
+            x={600}
+            y={525}
+            label="Food Court"
+            node={foodCourt}
+          />
+
+          <VenueNode
+            x={1060}
+            y={115}
+            label="Exit A"
+            node={exitA}
+          />
+
+          <VenueNode
+            x={1080}
+            y={285}
+            label="Exit B"
+            node={exitB}
+          />
+
+          <VenueNode
+            x={1050}
+            y={500}
+            label="Exit C"
+            node={exitC}
+          />
+
+        </svg>
+
+
+        {/* =================================================
+            BOTTOM INFORMATION
+        ================================================= */}
+
+        <div className="map-stats">
+
+          <div>
+            <span>
+              Total Crowd
+            </span>
+
+            <strong>
+              {total}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Moving
+            </span>
+
+            <strong>
+              {moving}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Visible
+            </span>
+
+            <strong>
+              {crowdDots.length}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              Congestion
+            </span>
+
+            <strong>
+              {congestion}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
   );
