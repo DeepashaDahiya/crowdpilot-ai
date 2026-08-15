@@ -1,91 +1,63 @@
-// CrowdPilot AI — dashboard
-// Person 2: VenueMap + KPI Cards + analytics
-// Person 3: RecommendationPanel can be connected to live API later
-
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
+import { useEffect, useRef, useState } from "react";
 import VenueMap from "./components/VenueMap";
 import BeforeAfter from "./components/BeforeAfter";
 import RecommendationPanel from "./components/RecommendationPanel";
-
 import "./App.css";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+const POLL_INTERVAL = 1000;
 const AFTER_DELAY_MS = 3000;
 
 export default function App() {
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [backendOnline, setBackendOnline] = useState(false);
+  const [simulationRunning, setSimulationRunning] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const [recommendation, setRecommendation] =
-    useState(null);
-
+  const [recommendation, setRecommendation] = useState(null);
   const [applyingRecommendation, setApplyingRecommendation] =
     useState(false);
 
-  // ==========================================
-  // BEFORE / AFTER STATE
-  // ==========================================
+  const [beforeSnapshot, setBeforeSnapshot] = useState(null);
+  const [afterSnapshot, setAfterSnapshot] = useState(null);
+  const [appliedRoute, setAppliedRoute] = useState(null);
 
-  // Snapshot immediately before Apply
-  const [beforeSnapshot, setBeforeSnapshot] =
-    useState(null);
-
-  // Snapshot from a later live /analysis poll
-  const [afterSnapshot, setAfterSnapshot] =
-    useState(null);
-
-  // The EXACT route that was applied.
-  // This must never be recalculated from the latest bottleneck.
-  const [appliedRoute, setAppliedRoute] =
-    useState(null);
-
-  // Used to know when the reroute was applied.
   const applyTimestampRef = useRef(null);
-
-  // Prevents repeatedly replacing the After snapshot
-  // after it has already been captured.
   const afterCapturedRef = useRef(false);
 
-  // ==========================================
-  // TEMPORARY RECOMMENDATION MOCK
-  // ==========================================
-  // Later replace this with P3's live
-  // /recommendation response.
-  //
-  // IMPORTANT:
-  // from_node and to_node are now included
-  // because Before/After must remember the
-  // actual route that was applied.
+  async function startSimulation() {
+    try {
+      const response = await fetch(
+        `${API_URL}/simulation/start`,
+        {
+          method: "POST",
+        }
+      );
 
-  const mockRecommendation = {
-    action: "Open Exit C",
+      if (!response.ok) {
+        throw new Error(
+          `Simulation start failed: ${response.status}`
+        );
+      }
 
-    from_node: "exit_a",
+      const data = await response.json();
 
-    to_node: "exit_c",
+      console.log("Simulation started:", data);
 
-    redirect_percentage: 30,
+      setSimulationRunning(true);
+      setError(null);
+    } catch (err) {
+      console.error("Simulation start error:", err);
 
-    reason:
-      "Exit A is critically congested while Exit C has substantial available capacity.",
-
-    expected_effect:
-      "Reduce congestion around Exit A.",
-  };
-
-  // ==========================================
-  // FETCH ANALYTICS
-  // ==========================================
+      setSimulationRunning(false);
+      setError(
+        "Backend is running, but the simulation could not be started."
+      );
+    }
+  }
 
   async function fetchAnalysis() {
     try {
@@ -101,328 +73,226 @@ export default function App() {
 
       const data = await response.json();
 
-      // ========================================
-      // UPDATE LIVE ANALYTICS
-      // ========================================
+      console.log("Analysis:", data);
 
       setAnalysis(data);
-
       setBackendOnline(true);
-
       setError(null);
-
       setLastUpdated(new Date());
 
-      // ========================================
-      // TEMPORARY RECOMMENDATION
-      // ========================================
-      // Later replace this with:
-      //
-      // const recommendationResponse =
-      //   await fetch(`${API_URL}/recommendation`, ...)
-      //
-      // and then:
-      //
-      // setRecommendation(recommendationData);
+      const bottlenecks = data.bottlenecks || [];
+      const alternatives = data.alternatives || [];
 
-      setRecommendation(mockRecommendation);
+      if (bottlenecks.length > 0) {
+        const bottleneck = bottlenecks[0];
 
-      // ========================================
-      // CAPTURE AFTER SNAPSHOT
-      // ========================================
-      //
-      // We DO NOT immediately use the current
-      // analysis as "After".
-      //
-      // We wait a few seconds so the simulation
-      // has time to process the reroute.
-      //
-      // The After snapshot is therefore based
-      // on a NEW live /analysis response.
+        const exitAlternative = alternatives.find(
+          (item) =>
+            item.node_id &&
+            item.node_id.startsWith("exit_")
+        );
+
+        if (exitAlternative) {
+          const displayName = exitAlternative.node_id
+            .replace("_", " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+
+          setRecommendation({
+            action: `Open ${displayName}`,
+            from_node: bottleneck.node_id,
+            to_node: exitAlternative.node_id,
+            redirect_percentage: 30,
+            reason:
+              `${bottleneck.node_id} is experiencing ` +
+              `${bottleneck.status} congestion while ` +
+              `${exitAlternative.node_id} has available capacity.`,
+            expected_effect:
+              `Reduce congestion around ${bottleneck.node_id}.`,
+          });
+        }
+      } else {
+        setRecommendation(null);
+      }
 
       if (
         applyTimestampRef.current !== null &&
         !afterCapturedRef.current
       ) {
         const elapsed =
-          Date.now() -
-          applyTimestampRef.current;
+          Date.now() - applyTimestampRef.current;
 
         if (elapsed >= AFTER_DELAY_MS) {
           setAfterSnapshot(data);
-
           afterCapturedRef.current = true;
         }
       }
     } catch (err) {
-      console.error(err);
+      console.error("Analysis error:", err);
 
       setBackendOnline(false);
-
       setError(
         "Unable to connect to CrowdPilot backend."
       );
     }
   }
 
-  // ==========================================
-  // APPLY RECOMMENDATION
-  // ==========================================
-
   async function handleApplyRecommendation(
     selectedRecommendation
   ) {
     if (!selectedRecommendation) {
-      console.error(
-        "No recommendation available to apply."
-      );
-
       return;
     }
 
     try {
       setApplyingRecommendation(true);
 
-      console.log(
-        "Applying recommendation:",
-        selectedRecommendation
-      );
-
-      // ========================================
-      // 1. CAPTURE BEFORE
-      // ========================================
-      //
-      // This is the exact live state immediately
-      // before the reroute.
-
       if (analysis) {
         setBeforeSnapshot(analysis);
       }
 
-      // ========================================
-      // 2. CAPTURE EXACT ROUTE
-      // ========================================
-      //
-      // NEVER calculate this later from
-      // bottlenecks[0].
-      //
-      // The route shown in Before/After must be
-      // the route that was actually applied.
-
       const fromNode =
-        selectedRecommendation.from_node ||
-        selectedRecommendation.fromNode ||
-        "exit_a";
+        selectedRecommendation.from_node;
 
       const toNode =
-        selectedRecommendation.to_node ||
-        selectedRecommendation.toNode ||
-        "exit_c";
+        selectedRecommendation.to_node;
 
       const redirectPercentage =
-        selectedRecommendation.redirect_percentage ??
-        0;
+        selectedRecommendation.redirect_percentage ?? 0;
+
+      if (!fromNode || !toNode) {
+        throw new Error(
+          "Recommendation is missing from_node or to_node."
+        );
+      }
 
       setAppliedRoute({
         from_node: fromNode,
-
         to_node: toNode,
-
-        redirect_percentage:
-          redirectPercentage,
+        redirect_percentage: redirectPercentage,
       });
 
-      // Clear previous After snapshot.
       setAfterSnapshot(null);
 
-      // Allow a new After snapshot to be captured.
       afterCapturedRef.current = false;
-
-      // Start the timer used by fetchAnalysis().
       applyTimestampRef.current = Date.now();
 
-      // ========================================
-      // 3. APPLY THE ACTUAL REROUTE
-      // ========================================
-      //
-      // TEMPORARY MOCK
-      //
-      // Replace this block with the real P3
-      // /apply-recommendation endpoint once
-      // Person 3's API is connected.
-      //
-      // The project contract says Apply should
-      // ultimately call:
-      //
-      // from_node
-      // to_node
-      // redirect_percentage
-
-      await new Promise((resolve) =>
-        setTimeout(resolve, 1000)
-      );
-
-      console.log(
-        "Recommendation applied successfully:",
+      const response = await fetch(
+        `${API_URL}/simulation/reroute`,
         {
-          from_node: fromNode,
-          to_node: toNode,
-          redirect_percentage:
-            redirectPercentage,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from_node: fromNode,
+            to_node: toNode,
+            redirect_percentage:
+              redirectPercentage,
+          }),
         }
       );
 
-      // ========================================
-      // REAL API VERSION
-      // ========================================
-      //
-      // When P3's endpoint is ready, replace
-      // the temporary mock above with:
-      //
-      // const response = await fetch(
-      //   `${API_URL}/apply-recommendation`,
-      //   {
-      //     method: "POST",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //     },
-      //     body: JSON.stringify({
-      //       from_node: fromNode,
-      //       to_node: toNode,
-      //       redirect_percentage:
-      //         redirectPercentage,
-      //     }),
-      //   }
-      // );
-      //
-      // if (!response.ok) {
-      //   throw new Error(
-      //     `Apply API error: ${response.status}`
-      //   );
-      // }
+      if (!response.ok) {
+        const text = await response.text();
 
+        throw new Error(
+          `Reroute failed: ${response.status} ${text}`
+        );
+      }
+
+      const result = await response.json();
+
+      console.log(
+        "Reroute applied:",
+        result
+      );
     } catch (err) {
       console.error(
-        "Failed to apply recommendation:",
+        "Apply recommendation error:",
         err
       );
 
-      // If Apply fails, don't pretend that a
-      // reroute happened.
       applyTimestampRef.current = null;
-
       afterCapturedRef.current = true;
 
       setAfterSnapshot(null);
-
       setAppliedRoute(null);
-
       setBeforeSnapshot(null);
+
+      setError(
+        `Unable to apply recommendation: ${err.message}`
+      );
     } finally {
       setApplyingRecommendation(false);
     }
   }
 
-  // ==========================================
-  // REAL-TIME POLLING
-  // ==========================================
-
   useEffect(() => {
-    // Fetch immediately
-    fetchAnalysis();
+    async function initialize() {
+      await startSimulation();
+      await fetchAnalysis();
+    }
 
-    // Fetch every second
+    initialize();
+
     const interval = setInterval(
       fetchAnalysis,
-      1000
+      POLL_INTERVAL
     );
 
-    // Cleanup
     return () => {
       clearInterval(interval);
     };
   }, []);
 
-  // ==========================================
-  // LOADING
-  // ==========================================
-
   if (!analysis && !error) {
     return (
       <div className="app">
-
         <header className="header">
-
           <div>
-            <h1>
-              CrowdPilot AI
-            </h1>
-
+            <h1>CrowdPilot AI</h1>
             <p>
               Real-Time Crowd Intelligence
             </p>
           </div>
 
           <div className="live-indicator">
-
             <span className="live-dot offline" />
-
             CONNECTING...
-
           </div>
-
         </header>
 
         <div className="loading-state">
-
           <h2>
-            Loading crowd analytics...
+            Starting crowd simulation...
           </h2>
 
           <p>
-            Connecting to the CrowdPilot backend.
+            Connecting to CrowdPilot backend.
           </p>
-
         </div>
-
       </div>
     );
   }
 
-  // ==========================================
-  // ERROR
-  // ==========================================
-
   if (!analysis && error) {
     return (
       <div className="app">
-
         <header className="header">
-
           <div>
-
-            <h1>
-              CrowdPilot AI
-            </h1>
-
+            <h1>CrowdPilot AI</h1>
             <p>
               Real-Time Crowd Intelligence
             </p>
-
           </div>
 
           <div className="live-indicator">
-
             <span className="live-dot offline" />
-
             OFFLINE
-
           </div>
-
         </header>
 
         <div className="error-state">
-
           <h2>
             CrowdPilot backend unavailable
           </h2>
@@ -433,34 +303,28 @@ export default function App() {
 
           <button
             className="retry-button"
-            onClick={fetchAnalysis}
+            onClick={startSimulation}
           >
-            Retry Connection
+            Start Simulation
           </button>
-
         </div>
-
       </div>
     );
   }
 
-  // ==========================================
-  // SAFE DATA VALUES
-  // ==========================================
-
-  const crowd = analysis?.crowd ?? {
+  const crowd = analysis?.crowd || {
     total: 0,
     moving: 0,
   };
 
-  const metrics = analysis?.metrics ?? {
+  const metrics = analysis?.metrics || {
     congestion_score: 0,
     average_wait: 0,
     predictions: [],
   };
 
   const bottlenecks =
-    analysis?.bottlenecks ?? [];
+    analysis?.bottlenecks || [];
 
   const highestRisk =
     bottlenecks.length > 0
@@ -468,92 +332,55 @@ export default function App() {
       : null;
 
   const predictions =
-    metrics.predictions ?? [];
-
-  // ==========================================
-  // MAIN DASHBOARD
-  // ==========================================
+    metrics.predictions || [];
 
   return (
     <div className="app">
 
-      {/* =====================================
-          HEADER
-      ====================================== */}
-
       <header className="header">
-
         <div>
-
-          <h1>
-            CrowdPilot AI
-          </h1>
+          <h1>CrowdPilot AI</h1>
 
           <p>
             Real-Time Crowd Intelligence
           </p>
-
         </div>
 
-        {/* Backend status */}
-
         <div className="live-indicator">
-
           <span
             className={
-              backendOnline
+              backendOnline && simulationRunning
                 ? "live-dot online"
                 : "live-dot offline"
             }
           />
 
-          {backendOnline
+          {backendOnline && simulationRunning
             ? "LIVE"
             : "OFFLINE"}
 
           {lastUpdated && (
             <span className="last-updated">
-
               Updated{" "}
-
               {lastUpdated.toLocaleTimeString()}
-
             </span>
           )}
-
         </div>
-
       </header>
 
-
-      {/* =====================================
-          VENUE
-      ====================================== */}
-
       <section className="venue-section">
-
         <h2>
           {analysis?.venue || "stadium_01"}
         </h2>
 
         <p>
-          Monitoring crowd movement
-          and congestion
+          Monitoring crowd movement and congestion
         </p>
-
       </section>
-
-
-      {/* =====================================
-          KPI CARDS
-      ====================================== */}
 
       <section className="kpi-grid">
 
-        {/* Crowd Size */}
-
         <div className="kpi-card">
-
           <div className="kpi-label">
             CROWD SIZE
           </div>
@@ -563,17 +390,11 @@ export default function App() {
           </div>
 
           <div className="kpi-subtext">
-            {crowd.moving}
-            {" "}currently moving
+            {crowd.moving} currently moving
           </div>
-
         </div>
 
-
-        {/* Congestion Score */}
-
         <div className="kpi-card">
-
           <div className="kpi-label">
             CONGESTION SCORE
           </div>
@@ -585,268 +406,146 @@ export default function App() {
           <div className="kpi-subtext">
             Overall venue congestion
           </div>
-
         </div>
 
-
-        {/* Average Wait */}
-
         <div className="kpi-card">
-
           <div className="kpi-label">
             AVERAGE WAIT
           </div>
 
           <div className="kpi-value">
-
             {metrics.average_wait}
-
             <span className="unit">
               {" "}sec
             </span>
-
           </div>
 
           <div className="kpi-subtext">
             Current estimated wait
           </div>
-
         </div>
-
-
-        {/* Highest Risk */}
 
         <div
           className={
-            highestRisk &&
-            highestRisk.status === "critical"
+            highestRisk?.status === "critical"
               ? "kpi-card critical-card"
               : "kpi-card"
           }
         >
-
           <div className="kpi-label">
             HIGHEST RISK
           </div>
 
           {highestRisk ? (
-
             <>
-
               <div className="kpi-value risk">
-
                 {highestRisk.node_id}
-
               </div>
 
               <div className="kpi-subtext">
-
                 {Math.round(
                   highestRisk.severity * 100
                 )}
-
                 % utilization ·{" "}
-
                 {highestRisk.status}
-
               </div>
-
             </>
-
           ) : (
-
             <div className="kpi-value">
               None
             </div>
-
           )}
-
         </div>
 
       </section>
 
-
-      {/* =====================================
-          MAIN DASHBOARD
-      ====================================== */}
-
       <div className="dashboard-grid">
 
-
-        {/* ===================================
-            LEFT — VENUE MAP
-        ==================================== */}
-
         <main className="map-column">
-
           <VenueMap
             analysis={analysis}
           />
-
         </main>
-
-
-        {/* ===================================
-            RIGHT — ALERTS + PREDICTIONS +
-            RECOMMENDATION
-        ==================================== */}
 
         <aside className="side-column">
 
-
-          {/* =================================
-              CONGESTION ALERT
-          ================================== */}
-
           <section className="panel">
-
             <div className="panel-header">
-
               <h2>
                 Congestion Alerts
               </h2>
-
             </div>
 
-
             {highestRisk ? (
-
               <div className="alert">
-
                 <div className="alert-icon">
                   !
                 </div>
 
                 <div>
-
                   <strong>
                     {highestRisk.node_id}
                   </strong>
 
                   <p>
-
                     {Math.round(
                       highestRisk.severity * 100
                     )}
-
                     % utilization —{" "}
-
-                    {highestRisk.status}
-                    {" "}congestion.
-
+                    {highestRisk.status} congestion.
                   </p>
-
                 </div>
-
               </div>
-
             ) : (
-
               <p className="muted">
                 No active congestion alerts.
               </p>
-
             )}
-
           </section>
 
-
-          {/* =================================
-              PREDICTIONS
-          ================================== */}
-
           <section className="panel">
-
             <div className="panel-header">
-
               <h2>
                 Predictions
               </h2>
-
             </div>
 
-
             {predictions.length > 0 ? (
-
               predictions.map(
                 (prediction, index) => (
-
                   <div
                     className="prediction"
                     key={index}
                   >
-
-                    ⚠️{" "}
-
-                    {prediction}
-
+                    ⚠️ {prediction}
                   </div>
-
                 )
               )
-
             ) : (
-
               <p className="muted">
-                No increasing congestion
-                predicted.
+                No increasing congestion predicted.
               </p>
-
             )}
-
           </section>
 
-
-          {/* =================================
-              AI RECOMMENDATION
-          ================================== */}
-
           <RecommendationPanel
-            recommendation={
-              recommendation
-            }
-
-            /*
-             * IMPORTANT:
-             *
-             * Your RecommendationPanel currently
-             * does:
-             *
-             * onClick={onApply}
-             *
-             * Therefore we explicitly pass the
-             * current recommendation here.
-             *
-             * This guarantees App receives the
-             * recommendation object rather than
-             * the click event.
-             */
-
+            recommendation={recommendation}
             onApply={() =>
               handleApplyRecommendation(
                 recommendation
               )
             }
-
             applying={
               applyingRecommendation
             }
           />
 
         </aside>
-
       </div>
-
-
-      {/* =====================================
-          BEFORE / AFTER
-      ====================================== */}
 
       <BeforeAfter
         before={beforeSnapshot}
-
         after={afterSnapshot}
-
         appliedRoute={appliedRoute}
       />
 

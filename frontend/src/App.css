@@ -1,3 +1,268 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: #f4f7fb;
+  color: #17202a;
+}
+
+button {
+  font-family: inherit;
+}
+
+.app {
+  min-height: 100vh;
+  padding: 28px 36px 50px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+.header p {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 14px;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.live-dot.online {
+  background: #22c55e;
+}
+
+.live-dot.offline {
+  background: #ef4444;
+}
+
+.last-updated {
+  margin-left: 8px;
+  color: #98a2b3;
+  font-weight: 400;
+}
+
+/* =========================
+   VENUE
+========================= */
+
+.venue-section {
+  margin-bottom: 20px;
+}
+
+.venue-section h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.venue-section p {
+  margin: 5px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+/* =========================
+   KPI CARDS
+========================= */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.kpi-card {
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  padding: 20px;
+  min-height: 140px;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.kpi-label {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.kpi-value {
+  margin-top: 12px;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kpi-value.risk {
+  color: #ef4444;
+}
+
+.kpi-subtext {
+  margin-top: 10px;
+  color: #667085;
+  font-size: 13px;
+}
+
+.unit {
+  font-size: 15px;
+  font-weight: 600;
+  color: #667085;
+}
+
+.critical-card {
+  border-color: #fecaca;
+  background: #fffafa;
+}
+
+/* =========================
+   MAIN GRID
+========================= */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.map-column {
+  min-width: 0;
+}
+
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* =========================
+   PANELS
+========================= */
+
+.panel {
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* =========================
+   ALERT
+========================= */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.alert-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #f97316;
+  color: white;
+
+  font-weight: 800;
+}
+
+.alert strong {
+  display: block;
+  font-size: 14px;
+}
+
+.alert p {
+  margin: 5px 0 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.prediction {
+  padding: 12px;
+  border-radius: 9px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.muted {
+  color: #98a2b3;
+  font-size: 14px;
+}
+
 /* =========================
    VENUE MAP
 ========================= */
@@ -5,19 +270,23 @@
 .venue-map-container {
   background: white;
   border: 1px solid #e4e7ec;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 22px;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04);
 }
 
 .map-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  gap: 20px;
+  margin-bottom: 14px;
 }
 
 .map-header h2 {
   margin: 0;
+  font-size: 20px;
 }
 
 .map-header p {
@@ -75,92 +344,8 @@
 }
 
 /* =========================
-   BEFORE / AFTER
+   RECOMMENDATION
 ========================= */
-
-.before-after {
-  margin-top: 20px;
-}
-
-.before-after .panel-header {
-  margin-bottom: 20px;
-}
-
-.before-after h2 {
-  margin-bottom: 5px;
-}
-
-.comparison-grid {
-  display: grid;
-  grid-template-columns: 1fr 70px 1fr;
-  align-items: center;
-  gap: 16px;
-}
-
-.comparison-card {
-  border: 1px solid #e4e7ec;
-  border-radius: 12px;
-  padding: 22px;
-  background: #f8fafc;
-}
-
-.comparison-title {
-  font-size: 12px;
-  font-weight: bold;
-  letter-spacing: 0.8px;
-  color: #667085;
-}
-
-.comparison-risk {
-  margin-top: 12px;
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.comparison-value {
-  margin-top: 10px;
-  font-size: 32px;
-  font-weight: bold;
-}
-
-.comparison-label {
-  margin-top: 5px;
-  font-size: 13px;
-  color: #667085;
-}
-
-.comparison-score {
-  margin-top: 18px;
-  font-size: 14px;
-  color: #475467;
-}
-
-.comparison-arrow {
-  text-align: center;
-  font-size: 32px;
-  font-weight: bold;
-}
-
-@media (max-width: 700px) {
-  .comparison-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .comparison-arrow {
-    transform: rotate(90deg);
-  }
-}
-.live-dot.online {
-  background: #22c55e;
-}
-
-.live-dot.offline {
-  background: #ef4444;
-}
-
-/* =====================================================
-   RECOMMENDATION PANEL
-===================================================== */
 
 .recommendation-panel {
   border: 1px solid #dbe3ec;
@@ -176,14 +361,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
   padding: 5px 10px;
-
   border-radius: 999px;
-
   background: #eef2ff;
   color: #4f46e5;
-
   font-size: 12px;
   font-weight: 700;
 }
@@ -191,20 +372,15 @@
 .recommendation-action {
   margin-top: 18px;
   padding: 16px;
-
   border-radius: 12px;
-
   background: #f8fafc;
 }
 
 .action-label,
 .reason-label {
   display: block;
-
   margin-bottom: 6px;
-
   color: #64748b;
-
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -213,35 +389,34 @@
 
 .recommendation-action h3 {
   margin: 0;
-
   font-size: 22px;
+}
+
+.recommendation-route {
+  margin-top: 10px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .recommendation-details {
   display: grid;
   grid-template-columns: 1fr 1fr;
-
   gap: 12px;
-
   margin-top: 14px;
 }
 
 .recommendation-stat {
   padding: 14px;
-
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-
   background: white;
 }
 
 .recommendation-stat span {
   display: block;
-
   margin-bottom: 5px;
-
   color: #64748b;
-
   font-size: 12px;
 }
 
@@ -257,30 +432,22 @@
 .recommendation-reason p,
 .recommendation-effect p {
   margin: 0;
-
   color: #475569;
-
   font-size: 14px;
   line-height: 1.5;
 }
 
 .apply-button {
   width: 100%;
-
   margin-top: 20px;
-  padding: 12px 16px;
-
+  padding: 13px 16px;
   border: none;
   border-radius: 10px;
-
   background: #111827;
   color: white;
-
   font-size: 14px;
   font-weight: 700;
-
   cursor: pointer;
-
   transition:
     transform 0.15s ease,
     opacity 0.15s ease;
@@ -293,4 +460,176 @@
 .apply-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* =========================
+   BEFORE / AFTER
+========================= */
+
+.before-after {
+  margin-top: 22px;
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.before-after-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.before-after-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.before-after-header p {
+  margin: 5px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.route-badge {
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.before-after-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.snapshot-card {
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 20px;
+  background: #f8fafc;
+}
+
+.snapshot-card h3 {
+  margin: 0 0 18px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #667085;
+}
+
+.snapshot-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.snapshot-metric:last-of-type {
+  border-bottom: none;
+}
+
+.snapshot-metric span {
+  color: #667085;
+}
+
+.snapshot-metric strong {
+  font-size: 17px;
+}
+
+.snapshot-route {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 9px;
+  background: white;
+  color: #344054;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* =========================
+   LOADING / ERROR
+========================= */
+
+.loading-state,
+.error-state {
+  padding: 60px 20px;
+  text-align: center;
+  background: white;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+}
+
+.loading-state h2,
+.error-state h2 {
+  margin-top: 0;
+}
+
+.error {
+  color: #dc2626;
+}
+
+.retry-button {
+  margin-top: 15px;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 9px;
+  background: #111827;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1100px) {
+  .kpi-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    padding: 18px;
+  }
+
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .before-after-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .before-after-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recommendation-details {
+    grid-template-columns: 1fr;
+  }
+
+  .map-header {
+    flex-direction: column;
+  }
 }
