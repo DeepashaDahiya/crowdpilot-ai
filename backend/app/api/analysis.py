@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
+from app.api import simulation
+
 from app.analysis.congestion import (
     analyze_nodes,
     find_bottleneck,
@@ -22,7 +24,8 @@ router = APIRouter(
 # METRICS HISTORY
 # =========================================================
 
-# Keeps utilization history while the server is running.
+# Keeps utilization history while the backend is running.
+
 metrics_tracker = MetricsTracker()
 
 
@@ -32,108 +35,45 @@ metrics_tracker = MetricsTracker()
 
 def get_simulation_state() -> dict:
     """
-    Get the current simulation state from P1.
+    P2 consumes the live simulation state owned by P1.
 
-    P1 owns:
-        - agents
-        - movement
-        - routes
-        - simulation engine
+    P1:
+        /simulation/state
+        ↓
+        crowd
+        nodes
+        occupancy
+        capacity
+        utilization
 
-    P2 owns:
-        - utilization
-        - congestion status
-        - bottlenecks
-        - alternatives
-        - metrics
-        - predictions
-
-    Expected P1 state:
-
-    {
-        "venue": "stadium_01",
-
-        "crowd": {
-            "total": 400,
-            "moving": 350
-        },
-
-        "nodes": [
-            {
-                "id": "exit_a",
-                "occupancy": 410,
-                "capacity": 500,
-                "utilization": 0.82
-            }
-        ]
-    }
+    P2:
+        congestion analysis
+        bottleneck detection
+        alternatives
+        metrics
+        predictions
     """
 
     try:
 
-        # -------------------------------------------------
-        # Import P1 simulation module
-        # -------------------------------------------------
-
-        from app.api import simulation
-
-
-        # -------------------------------------------------
-        # Get state from P1
-        # -------------------------------------------------
-
         state = simulation.get_state()
 
+    except Exception as exc:
 
-        # -------------------------------------------------
-        # Protect against None
-        # -------------------------------------------------
-
-        if state is None:
-
-            return {
-                "venue": "stadium_01",
-
-                "crowd": {
-                    "total": 0,
-                    "moving": 0,
-                },
-
-                "nodes": [],
-            }
-
-
-        # -------------------------------------------------
-        # Ensure required keys exist
-        # -------------------------------------------------
-
-        state.setdefault(
-            "venue",
-            "stadium_01",
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Unable to read P1 simulation state: "
+                f"{str(exc)}"
+            ),
         )
-
-        state.setdefault(
-            "crowd",
-            {
-                "total": 0,
-                "moving": 0,
-            },
-        )
-
-        state.setdefault(
-            "nodes",
-            [],
-        )
-
-
-        return state
 
 
     # -----------------------------------------------------
-    # P1 simulation is not available yet
+    # Protect against None
     # -----------------------------------------------------
 
-    except (ImportError, AttributeError):
+    if state is None:
 
         return {
             "venue": "stadium_01",
@@ -147,6 +87,79 @@ def get_simulation_state() -> dict:
         }
 
 
+    # -----------------------------------------------------
+    # Ensure required fields exist
+    # -----------------------------------------------------
+
+    if not isinstance(
+        state,
+        dict
+    ):
+
+        raise HTTPException(
+            status_code=503,
+            detail="Invalid simulation state returned by P1",
+        )
+
+
+    state.setdefault(
+        "venue",
+        "stadium_01",
+    )
+
+    state.setdefault(
+        "crowd",
+        {
+            "total": 0,
+            "moving": 0,
+        },
+    )
+
+    state.setdefault(
+        "nodes",
+        [],
+    )
+
+
+    return state
+
+
+# =========================================================
+# EMPTY ANALYSIS RESPONSE
+# =========================================================
+
+def empty_analysis(
+    state: dict,
+) -> dict:
+
+    return {
+        "venue": state.get(
+            "venue",
+            "stadium_01",
+        ),
+
+        "crowd": state.get(
+            "crowd",
+            {
+                "total": 0,
+                "moving": 0,
+            },
+        ),
+
+        "nodes": [],
+
+        "bottlenecks": [],
+
+        "alternatives": [],
+
+        "metrics": {
+            "congestion_score": 0,
+            "average_wait": 0.0,
+            "predictions": [],
+        },
+    }
+
+
 # =========================================================
 # ANALYSIS ENDPOINT
 # =========================================================
@@ -154,29 +167,29 @@ def get_simulation_state() -> dict:
 @router.get("")
 def get_analysis():
     """
-    Analyze the current crowd simulation state.
+    Analyze the current live P1 simulation state.
 
     Flow:
 
         P1 Simulation
               ↓
-        Simulation State
+        simulation.get_state()
               ↓
-        Analyze Nodes
+        analyze_nodes()
               ↓
-        Find Bottleneck
+        find_bottleneck()
               ↓
-        Find Alternatives
+        find_alternatives()
               ↓
-        Calculate Metrics
+        build_metrics()
               ↓
-        Return P2 Analytics
+        P2 Analytics Response
     """
 
     try:
 
         # =================================================
-        # 1. GET CURRENT SIMULATION STATE
+        # 1. GET LIVE P1 STATE
         # =================================================
 
         state = get_simulation_state()
@@ -188,41 +201,18 @@ def get_analysis():
 
 
         # =================================================
-        # 2. HANDLE EMPTY SIMULATION
+        # 2. HANDLE IDLE SIMULATION
         # =================================================
 
         if not nodes:
 
-            return {
-                "venue": state.get(
-                    "venue",
-                    "stadium_01",
-                ),
-
-                "crowd": state.get(
-                    "crowd",
-                    {
-                        "total": 0,
-                        "moving": 0,
-                    },
-                ),
-
-                "nodes": [],
-
-                "bottlenecks": [],
-
-                "alternatives": [],
-
-                "metrics": {
-                    "congestion_score": 0,
-                    "average_wait": 0.0,
-                    "predictions": [],
-                },
-            }
+            return empty_analysis(
+                state
+            )
 
 
         # =================================================
-        # 3. ANALYZE EVERY NODE
+        # 3. ANALYZE ALL NODES
         # =================================================
 
         analyzed_nodes = analyze_nodes(
@@ -231,17 +221,16 @@ def get_analysis():
 
 
         # =================================================
-        # 4. FIND BOTTLENECK
+        # 4. FIND SINGLE HIGHEST-RISK NODE
         # =================================================
 
         bottleneck = find_bottleneck(
             analyzed_nodes
         )
 
-
         bottlenecks = []
 
-        if bottleneck:
+        if bottleneck is not None:
 
             bottlenecks.append(
                 bottleneck
@@ -278,11 +267,10 @@ def get_analysis():
 
 
         # =================================================
-        # 7. RETURN P2 ANALYTICS CONTRACT
+        # 7. RETURN P2 CONTRACT
         # =================================================
 
         return {
-
             "venue": state.get(
                 "venue",
                 "stadium_01",
@@ -307,8 +295,12 @@ def get_analysis():
 
 
     # =====================================================
-    # ERROR HANDLING
+    # ANALYTICS ERROR
     # =====================================================
+
+    except HTTPException:
+        raise
+
 
     except Exception as exc:
 

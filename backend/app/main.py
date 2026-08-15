@@ -24,6 +24,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 from app.api import simulation
 app.include_router(simulation.router)
 

@@ -4,8 +4,9 @@ CrowdPilot AI - Congestion Analysis
 P2 responsibilities:
 - Calculate node utilization
 - Classify congestion severity
+- Analyze all venue nodes
 - Identify the most congested node
-- Find alternative nodes with available capacity
+- Find alternative exits with available capacity
 """
 
 from typing import Any
@@ -32,10 +33,10 @@ def calculate_utilization(
     Calculate utilization from occupancy and capacity.
 
     Example:
-        occupancy = 410
+        occupancy = 400
         capacity = 500
 
-        utilization = 410 / 500 = 0.82
+        utilization = 0.80
     """
 
     if capacity <= 0:
@@ -43,7 +44,6 @@ def calculate_utilization(
 
     utilization = occupancy / capacity
 
-    # Keep the value within 0-1.
     utilization = max(
         0.0,
         min(utilization, 1.0),
@@ -60,7 +60,7 @@ def get_congestion_status(
     utilization: float,
 ) -> str:
     """
-    Classify utilization.
+    Classify congestion level.
 
     < 0.60  -> low
     < 0.80  -> moderate
@@ -88,28 +88,25 @@ def analyze_nodes(
     nodes: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """
-    Analyze every venue node.
+    Analyze every node received from P1.
 
-    Input from P1:
+    P1 provides:
 
     {
         "id": "exit_a",
-        "occupancy": 410,
-        "capacity": 500
+        "occupancy": 400,
+        "capacity": 500,
+        "utilization": 0.8
     }
 
-    Output:
+    P2 adds:
 
     {
-        "id": "exit_a",
-        "occupancy": 410,
-        "capacity": 500,
-        "utilization": 0.82,
         "status": "high"
     }
     """
 
-    analyzed_nodes = []
+    analyzed_nodes: list[dict[str, Any]] = []
 
     for node in nodes:
 
@@ -118,69 +115,44 @@ def analyze_nodes(
             "unknown",
         )
 
-        occupancy = node.get(
-            "occupancy",
-            0,
-        )
-
-        capacity = node.get(
-            "capacity",
-            0,
-        )
-
         # -------------------------------------------------
-        # Convert values safely
+        # Read occupancy
         # -------------------------------------------------
 
         try:
-            occupancy = float(occupancy)
+            occupancy = float(
+                node.get(
+                    "occupancy",
+                    0,
+                )
+            )
         except (TypeError, ValueError):
             occupancy = 0.0
 
+        # -------------------------------------------------
+        # Read capacity
+        # -------------------------------------------------
+
         try:
-            capacity = float(capacity)
+            capacity = float(
+                node.get(
+                    "capacity",
+                    0,
+                )
+            )
         except (TypeError, ValueError):
             capacity = 0.0
 
         # -------------------------------------------------
-        # Use P1 utilization if supplied.
-        # Otherwise calculate it ourselves.
+        # Calculate utilization ourselves
+        #
+        # This keeps P2 authoritative for analytics.
         # -------------------------------------------------
 
-        supplied_utilization = node.get(
-            "utilization"
+        utilization = calculate_utilization(
+            occupancy,
+            capacity,
         )
-
-        if supplied_utilization is not None:
-
-            try:
-                utilization = float(
-                    supplied_utilization
-                )
-
-                utilization = max(
-                    0.0,
-                    min(utilization, 1.0),
-                )
-
-                utilization = round(
-                    utilization,
-                    2,
-                )
-
-            except (TypeError, ValueError):
-
-                utilization = calculate_utilization(
-                    occupancy,
-                    capacity,
-                )
-
-        else:
-
-            utilization = calculate_utilization(
-                occupancy,
-                capacity,
-            )
 
         # -------------------------------------------------
         # Determine congestion status
@@ -191,25 +163,26 @@ def analyze_nodes(
         )
 
         # -------------------------------------------------
-        # Preserve the node information
+        # Preserve original node information
         # -------------------------------------------------
 
         analyzed_node = dict(node)
 
-        analyzed_node["occupancy"] = (
-            int(occupancy)
-            if occupancy.is_integer()
-            else occupancy
-        )
+        if occupancy.is_integer():
+            analyzed_node["occupancy"] = int(
+                occupancy
+            )
+        else:
+            analyzed_node["occupancy"] = occupancy
 
-        analyzed_node["capacity"] = (
-            int(capacity)
-            if capacity.is_integer()
-            else capacity
-        )
+        if capacity.is_integer():
+            analyzed_node["capacity"] = int(
+                capacity
+            )
+        else:
+            analyzed_node["capacity"] = capacity
 
         analyzed_node["utilization"] = utilization
-
         analyzed_node["status"] = status
 
         analyzed_nodes.append(
@@ -227,17 +200,21 @@ def find_bottleneck(
     analyzed_nodes: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     """
-    Find the single most-congested node.
+    Find the single most congested node.
 
-    Returns:
+    Example:
 
-    {
-        "node_id": "exit_a",
-        "severity": 0.92,
-        "status": "critical"
-    }
+        exit_a = 0.80
+        exit_b = 0.20
+        exit_c = 0.10
 
-    Returns None when there are no nodes.
+    Result:
+
+        {
+            "node_id": "exit_a",
+            "severity": 0.80,
+            "status": "high"
+        }
     """
 
     if not analyzed_nodes:
@@ -245,9 +222,11 @@ def find_bottleneck(
 
     bottleneck = max(
         analyzed_nodes,
-        key=lambda node: node.get(
-            "utilization",
-            0,
+        key=lambda node: float(
+            node.get(
+                "utilization",
+                0,
+            )
         ),
     )
 
@@ -277,7 +256,7 @@ def find_bottleneck(
 
 
 # =========================================================
-# FIND ALTERNATIVES
+# FIND ALTERNATIVE EXITS
 # =========================================================
 
 def find_alternatives(
@@ -285,71 +264,92 @@ def find_alternatives(
     bottleneck_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Find less-congested nodes that can act as alternatives.
+    Find suitable alternative exits.
 
-    The bottleneck itself is excluded.
-
-    Alternatives are sorted by utilization:
-        lowest utilization first.
-
-    Example:
-
-        exit_a = 0.82  <- bottleneck
-        exit_b = 0.50
-        exit_c = 0.20
-
-    Result:
-
-        exit_c
-        exit_b
+    Rules:
+    1. Only exit_* nodes are valid.
+    2. Current bottleneck is excluded.
+    3. Full exits are excluded.
+    4. Least congested exits are preferred.
     """
 
-    alternatives = []
+    alternatives: list[dict[str, Any]] = []
 
     for node in analyzed_nodes:
 
-        node_id = node.get(
-            "id",
-            "unknown",
+        node_id = str(
+            node.get(
+                "id",
+                "unknown",
+            )
         )
 
         # -------------------------------------------------
-        # Never recommend the current bottleneck
+        # Exclude current bottleneck
         # -------------------------------------------------
 
         if node_id == bottleneck_id:
             continue
 
-        utilization = float(
-            node.get(
-                "utilization",
-                0,
-            )
-        )
+        # -------------------------------------------------
+        # Only exits can be rerouting destinations
+        # -------------------------------------------------
 
-        capacity = float(
-            node.get(
-                "capacity",
-                0,
-            )
-        )
+        if not node_id.startswith("exit_"):
+            continue
 
-        occupancy = float(
-            node.get(
-                "occupancy",
-                0,
+        # -------------------------------------------------
+        # Read utilization
+        # -------------------------------------------------
+
+        try:
+            utilization = float(
+                node.get(
+                    "utilization",
+                    0.0,
+                )
             )
-        )
+        except (TypeError, ValueError):
+            utilization = 0.0
+
+        # -------------------------------------------------
+        # Read capacity
+        # -------------------------------------------------
+
+        try:
+            capacity = float(
+                node.get(
+                    "capacity",
+                    0.0,
+                )
+            )
+        except (TypeError, ValueError):
+            capacity = 0.0
+
+        # -------------------------------------------------
+        # Read occupancy
+        # -------------------------------------------------
+
+        try:
+            occupancy = float(
+                node.get(
+                    "occupancy",
+                    0.0,
+                )
+            )
+        except (TypeError, ValueError):
+            occupancy = 0.0
+
+        # -------------------------------------------------
+        # Calculate available capacity
+        # -------------------------------------------------
 
         available_capacity = max(
-            0,
+            0.0,
             capacity - occupancy,
         )
 
-        # -------------------------------------------------
-        # Only consider nodes with available capacity
-        # -------------------------------------------------
-
+        # Ignore full exits.
         if available_capacity <= 0:
             continue
 
@@ -357,7 +357,13 @@ def find_alternatives(
             {
                 "node_id": node_id,
                 "utilization": round(
-                    utilization,
+                    max(
+                        0.0,
+                        min(
+                            utilization,
+                            1.0,
+                        ),
+                    ),
                     2,
                 ),
                 "available_capacity": int(
@@ -367,11 +373,17 @@ def find_alternatives(
         )
 
     # -----------------------------------------------------
-    # Prefer the least congested alternatives
+    # Best alternative first
+    #
+    # 1. Lowest utilization
+    # 2. If equal, highest available capacity
     # -----------------------------------------------------
 
     alternatives.sort(
-        key=lambda node: node["utilization"]
+        key=lambda item: (
+            item["utilization"],
+            -item["available_capacity"],
+        )
     )
 
     return alternatives
